@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useLive2DStore } from '@/stores/live2d-store';
 import { CANVAS_CONFIG, RESOURCES_PATH, ModelName } from '@/lib/live2d/config';
 import { Platform } from '@/lib/live2d/platform';
-import { SimpleLive2DModel } from '@/lib/live2d/simple-model';
+import { Live2DManager } from '@/lib/live2d/live2d-manager';
+import { loadLive2DCore } from '@/lib/live2d/core-loader';
 
 interface Live2DCanvasProps {
   className?: string;
@@ -12,11 +13,12 @@ interface Live2DCanvasProps {
 
 export default function Live2DCanvas({ className = '' }: Live2DCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const modelRef = useRef<SimpleLive2DModel | null>(null);
+  const managerRef = useRef<Live2DManager | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const { 
     currentModel, 
     isLoading, 
+    isLoaded,
     setLoading, 
     setLoaded, 
     setError,
@@ -36,12 +38,22 @@ export default function Live2DCanvas({ className = '' }: Live2DCanvasProps) {
         
         Platform.log('Initializing Live2D Canvas...');
         
-        // 创建模型实例
-        modelRef.current = new SimpleLive2DModel();
+        // 首先加载Live2D Core
+        await loadLive2DCore();
         
-        setIsInitialized(true);
-        setLoading(false);
-        Platform.log('Live2D Canvas initialized');
+        // 创建Live2D管理器
+        managerRef.current = new Live2DManager();
+        
+        // 初始化Live2D Framework
+        const success = await managerRef.current.initialize(canvasRef.current);
+        
+        if (success) {
+          setIsInitialized(true);
+          setLoading(false);
+          Platform.log('Live2D Canvas initialized');
+        } else {
+          throw new Error('Failed to initialize Live2D Framework');
+        }
       } catch (error) {
         Platform.error(`Failed to initialize Live2D: ${error}`);
         setError(error instanceof Error ? error.message : 'Initialization failed');
@@ -54,39 +66,50 @@ export default function Live2DCanvas({ className = '' }: Live2DCanvasProps) {
 
   // 加载模型
   useEffect(() => {
-    if (!currentModel || !isInitialized || !modelRef.current) return;
+    if (!currentModel || !isInitialized || !managerRef.current) return;
 
     const loadModel = async () => {
       try {
         setLoading(true);
         Platform.log(`Loading model: ${currentModel}`);
         
-        // 设置回调
-        modelRef.current!.setCallbacks(
-          () => {
-            // 模型加载完成
-            const expressions = modelRef.current!.getAvailableExpressions();
-            const motions = modelRef.current!.getAvailableMotions();
-            
-            setAvailableExpressions(expressions);
-            setAvailableMotions(motions);
-            setLoaded(true);
-            setLoading(false);
-            Platform.log(`Model loaded: ${currentModel}`);
-          },
-          (error) => {
-            // 加载错误
-            Platform.error(`Failed to load model: ${error}`);
-            setError(error);
-            setLoading(false);
-          }
-        );
+        // 清除之前的模型
+        managerRef.current!.clearModels();
         
-        // 开始加载模型
-        await modelRef.current!.loadModel(
-          `${RESOURCES_PATH}${currentModel}/`,
-          `${currentModel}.model3.json`
-        );
+        // 加载新模型
+        const model = await managerRef.current!.loadModel(currentModel);
+        if (model) {
+          // 等待模型完全加载
+          let checkCount = 0;
+          const maxChecks = 50; // 最多检查5秒
+          
+          const checkLoaded = () => {
+            checkCount++;
+            
+            if (model.isLoaded()) {
+              const expressions = managerRef.current!.getAvailableExpressions();
+              const motions = managerRef.current!.getAvailableMotions();
+              
+              setAvailableExpressions(expressions);
+              setAvailableMotions(motions);
+              setLoaded(true);
+              setLoading(false);
+              Platform.log(`Model loaded: ${currentModel}`);
+            } else if (checkCount < maxChecks) {
+              // 继续检查
+              setTimeout(checkLoaded, 100);
+            } else {
+              // 超时
+              Platform.error('Model loading timeout');
+              setError('Model loading timeout');
+              setLoading(false);
+            }
+          };
+          
+          checkLoaded();
+        } else {
+          throw new Error('Failed to create model instance');
+        }
         
       } catch (error) {
         Platform.error(`Failed to load model: ${error}`);
@@ -100,34 +123,37 @@ export default function Live2DCanvas({ className = '' }: Live2DCanvasProps) {
 
   // 处理表情和动作变化
   useEffect(() => {
-    if (!modelRef.current || !modelRef.current.isLoaded()) return;
+    if (!managerRef.current) return;
     
     if (currentExpression) {
-      modelRef.current.setExpression(currentExpression);
+      managerRef.current.setExpression(currentExpression);
     }
   }, [currentExpression]);
 
   useEffect(() => {
-    if (!modelRef.current || !modelRef.current.isLoaded()) return;
+    if (!managerRef.current) return;
     
     if (currentMotion) {
-      modelRef.current.playMotion(currentMotion.group, currentMotion.index);
+      managerRef.current.playMotion(currentMotion.group, currentMotion.index);
     }
   }, [currentMotion]);
 
   // 渲染循环
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || !managerRef.current) return;
 
     let animationId: number;
     
     const render = () => {
-      Platform.updateTime();
-      
-      // 更新模型
-      if (modelRef.current && modelRef.current.isLoaded()) {
-        modelRef.current.update();
-        // 在实际版本中，这里会调用draw方法
+      try {
+        // 只有在模型加载完成时才进行更新和渲染
+        if (isLoaded && managerRef.current) {
+          managerRef.current.update();
+          managerRef.current.draw();
+        }
+      } catch (error) {
+        console.error('[Live2D Render Error]:', error);
+        setError(error instanceof Error ? error.message : 'Render error');
       }
       
       animationId = requestAnimationFrame(render);
@@ -140,7 +166,16 @@ export default function Live2DCanvas({ className = '' }: Live2DCanvasProps) {
         cancelAnimationFrame(animationId);
       }
     };
-  }, [isInitialized]);
+  }, [isInitialized, isLoaded]);
+
+  // 清理资源
+  useEffect(() => {
+    return () => {
+      if (managerRef.current) {
+        managerRef.current.release();
+      }
+    };
+  }, []);
 
   return (
     <div className={`relative ${className}`}>

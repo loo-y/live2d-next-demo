@@ -15,7 +15,7 @@ interface Live2DState {
   
   // 可用的表情和动作列表
   availableExpressions: string[];
-  availableMotions: Record<MotionGroup, number>;
+  availableMotions: Record<string, number>;
   
   // 错误状态
   error: string | null;
@@ -27,7 +27,7 @@ interface Live2DState {
   setCurrentExpression: (expression: string) => void;
   setCurrentMotion: (group: MotionGroup, index: number) => void;
   setAvailableExpressions: (expressions: string[]) => void;
-  setAvailableMotions: (motions: Record<MotionGroup, number>) => void;
+  setAvailableMotions: (motions: Record<string, number>) => void;
   setError: (error: string | null) => void;
   
   // 重置状态
@@ -42,7 +42,7 @@ export const useLive2DStore = create<Live2DState>((set) => ({
   currentExpression: null,
   currentMotion: null,
   availableExpressions: [],
-  availableMotions: {} as Record<MotionGroup, number>,
+  availableMotions: {} as Record<string, number>,
   error: null,
   
   // Actions
@@ -62,7 +62,7 @@ export const useLive2DStore = create<Live2DState>((set) => ({
     currentExpression: null,
     currentMotion: null,
     availableExpressions: [],
-    availableMotions: {} as Record<MotionGroup, number>,
+    availableMotions: {} as Record<string, number>,
     error: null,
   }),
 }));

@@ -7,14 +7,14 @@ export const RESOURCES_PATH = '/models/';
 
 // 可用的模型列表
 export const MODELS = [
-  'Haru',
+  'haru',
   'Hiyori', 
   'Mark',
   'Natori',
   'Rice',
   'Mao',
   'Wanko',
-  'koharu',
+  'Koharu',
   'haruto'
 ] as const;
 

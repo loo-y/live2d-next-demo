@@ -28,13 +28,21 @@ export class Platform {
    */
   public static async loadFileAsBytes(filePath: string): Promise<ArrayBuffer> {
     try {
+      Platform.log(`Attempting to load file: ${filePath}`);
       const response = await fetch(filePath);
+      
       if (!response.ok) {
-        throw new Error(`Failed to load file: ${filePath}`);
+        const errorMsg = `Failed to load file: ${filePath} (Status: ${response.status} ${response.statusText})`;
+        Platform.error(errorMsg);
+        throw new Error(errorMsg);
       }
+      
+      const contentLength = response.headers.get('content-length');
+      Platform.log(`Successfully loaded file: ${filePath} (${contentLength ? contentLength + ' bytes' : 'size unknown'})`);
       return await response.arrayBuffer();
     } catch (error) {
-      console.error('File load error:', error);
+      const errorMsg = `File load error for ${filePath}: ${error}`;
+      Platform.error(errorMsg);
       throw error;
     }
   }
