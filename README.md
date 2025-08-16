@@ -1,1 +1,1 @@
-"# live2d-next-demo" 
+# live2d-next-demo
