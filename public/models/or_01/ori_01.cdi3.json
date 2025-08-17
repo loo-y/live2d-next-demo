@@ -1,0 +1,289 @@
+{
+	"Version": 3,
+	"Parameters": [
+		{
+			"Id": "ParamAngleX",
+			"GroupId": "",
+			"Name": "角度 X"
+		},
+		{
+			"Id": "ParamAngleY",
+			"GroupId": "",
+			"Name": "角度 Y"
+		},
+		{
+			"Id": "ParamAngleZ",
+			"GroupId": "",
+			"Name": "角度 Z"
+		},
+		{
+			"Id": "ParamEyeLOpen",
+			"GroupId": "",
+			"Name": "左目　開閉"
+		},
+		{
+			"Id": "ParamEyeLSmile",
+			"GroupId": "",
+			"Name": "左目　笑顔"
+		},
+		{
+			"Id": "ParamEyeROpen",
+			"GroupId": "",
+			"Name": "右目　開閉"
+		},
+		{
+			"Id": "ParamEyeRSmile",
+			"GroupId": "",
+			"Name": "右目　笑顔"
+		},
+		{
+			"Id": "ParamEyeBallX",
+			"GroupId": "",
+			"Name": "目玉 X"
+		},
+		{
+			"Id": "ParamEyeBallY",
+			"GroupId": "",
+			"Name": "目玉 Y"
+		},
+		{
+			"Id": "ParamBrowLY",
+			"GroupId": "",
+			"Name": "左眉　上下"
+		},
+		{
+			"Id": "ParamBrowRY",
+			"GroupId": "",
+			"Name": "右眉　上下"
+		},
+		{
+			"Id": "ParamBrowLX",
+			"GroupId": "",
+			"Name": "左眉　左右"
+		},
+		{
+			"Id": "ParamBrowRX",
+			"GroupId": "",
+			"Name": "右眉　左右"
+		},
+		{
+			"Id": "ParamBrowLAngle",
+			"GroupId": "",
+			"Name": "左眉　角度"
+		},
+		{
+			"Id": "ParamBrowRAngle",
+			"GroupId": "",
+			"Name": "右眉　角度"
+		},
+		{
+			"Id": "ParamBrowLForm",
+			"GroupId": "",
+			"Name": "左眉　変形"
+		},
+		{
+			"Id": "ParamBrowRForm",
+			"GroupId": "",
+			"Name": "右眉　変形"
+		},
+		{
+			"Id": "ParamMouthForm",
+			"GroupId": "",
+			"Name": "口　変形"
+		},
+		{
+			"Id": "ParamMouthOpenY",
+			"GroupId": "",
+			"Name": "口　開閉"
+		},
+		{
+			"Id": "ParamBodyAngleX",
+			"GroupId": "",
+			"Name": "体の回転　X"
+		},
+		{
+			"Id": "ParamBodyAngleY",
+			"GroupId": "",
+			"Name": "体の回転　Y"
+		},
+		{
+			"Id": "ParamBodyAngleZ",
+			"GroupId": "",
+			"Name": "体の回転　Z"
+		},
+		{
+			"Id": "ParamBreath",
+			"GroupId": "",
+			"Name": "呼吸"
+		},
+		{
+			"Id": "ParamHairFront",
+			"GroupId": "",
+			"Name": "髪揺れ　前"
+		},
+		{
+			"Id": "ParamHairSide",
+			"GroupId": "",
+			"Name": "髪揺れ　横"
+		},
+		{
+			"Id": "ParamHairBack",
+			"GroupId": "",
+			"Name": "髪揺れ　後"
+		},
+		{
+			"Id": "Param2",
+			"GroupId": "",
+			"Name": "スカート"
+		},
+		{
+			"Id": "Param6",
+			"GroupId": "",
+			"Name": "呼吸髪揺れ"
+		},
+		{
+			"Id": "Param3",
+			"GroupId": "",
+			"Name": "上着袖揺れ"
+		},
+		{
+			"Id": "ParamSiitake",
+			"GroupId": "",
+			"Name": "シイタケ"
+		},
+		{
+			"Id": "ParamAozame",
+			"GroupId": "",
+			"Name": "青ざめ"
+		},
+		{
+			"Id": "ParamNamida",
+			"GroupId": "",
+			"Name": "涙"
+		},
+		{
+			"Id": "Param",
+			"GroupId": "",
+			"Name": "チャーム"
+		},
+		{
+			"Id": "ParamSekimenn",
+			"GroupId": "",
+			"Name": "赤面"
+		},
+		{
+			"Id": "Param4",
+			"GroupId": "",
+			"Name": "ハイライト揺れ"
+		},
+		{
+			"Id": "Param5",
+			"GroupId": "",
+			"Name": "涙揺れ"
+		},
+		{
+			"Id": "Param7",
+			"GroupId": "",
+			"Name": "上着揺れ"
+		},
+		{
+			"Id": "Param8",
+			"GroupId": "",
+			"Name": "フリル揺れx"
+		},
+		{
+			"Id": "Param9",
+			"GroupId": "",
+			"Name": "Y揺れ"
+		}
+	],
+	"ParameterGroups": [],
+	"Parts": [
+		{
+			"Id": "Part",
+			"Name": "キャラクター"
+		},
+		{
+			"Id": "PartSketch0",
+			"Name": "[ 下絵 ]"
+		},
+		{
+			"Id": "Part2",
+			"Name": "髪"
+		},
+		{
+			"Id": "Part6",
+			"Name": "顔特殊"
+		},
+		{
+			"Id": "Part7",
+			"Name": "←目の周り"
+		},
+		{
+			"Id": "Part8",
+			"Name": "→目の周り"
+		},
+		{
+			"Id": "Part9",
+			"Name": "補正"
+		},
+		{
+			"Id": "Part10",
+			"Name": "口"
+		},
+		{
+			"Id": "Part11",
+			"Name": "顔"
+		},
+		{
+			"Id": "Part12",
+			"Name": "上半身"
+		},
+		{
+			"Id": "Part16",
+			"Name": "下半身"
+		},
+		{
+			"Id": "Part3",
+			"Name": "→サイド"
+		},
+		{
+			"Id": "Part4",
+			"Name": "←サイド"
+		},
+		{
+			"Id": "Part5",
+			"Name": "前髪"
+		},
+		{
+			"Id": "Part13",
+			"Name": "胸"
+		},
+		{
+			"Id": "Part14",
+			"Name": "腕右"
+		},
+		{
+			"Id": "Part15",
+			"Name": "腕左"
+		}
+	],
+	"CombinedParameters": [
+		[
+			"ParamAngleX",
+			"ParamAngleY"
+		],
+		[
+			"ParamEyeBallX",
+			"ParamEyeBallY"
+		],
+		[
+			"ParamMouthForm",
+			"ParamMouthOpenY"
+		],
+		[
+			"ParamBodyAngleX",
+			"ParamBodyAngleY"
+		]
+	]
+}

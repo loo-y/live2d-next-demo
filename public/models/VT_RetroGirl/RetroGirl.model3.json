@@ -1,0 +1,23 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "RetroGirl.moc3",
+		"Textures": [
+			"RetroGirl.2048/texture_00.png",
+			"RetroGirl.2048/texture_01.png"
+		],
+		"DisplayInfo": "RetroGirl.cdi3.json"
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": []
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": []
+		}
+	]
+}
