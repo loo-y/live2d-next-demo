@@ -2,12 +2,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 // import { Live2DModel } from 'pixi-live2d-display-lipsyncpatch/cubism4';
 import * as PIXI from 'pixi.js';
-import * as CUBISM4 from 'pixi-live2d-display-lipsyncpatch/cubism4';
+// import * as CUBISM4 from 'pixi-live2d-display-lipsyncpatch/cubism4';
 
 
 export default function PixiLive2D() {
     const canvasRef = useRef(null);
     const [modelPath, setModelPath] = useState('/models/haru/haru.model3.json');
+    const [model, setModel] = useState<any>(null);
 
     useEffect(() => {
         // 确保 canvas 已经渲染
@@ -29,7 +30,9 @@ export default function PixiLive2D() {
     
 
         
-        loadModel(modelPath, app);
+        loadModel(modelPath, app).then(model=>{
+            setModel(model)
+        });
         // Live2DModel.from(modelPath).then(model => {
         //   app.stage.addChild(model);
         //   model.scale.set(0.25);
@@ -42,10 +45,37 @@ export default function PixiLive2D() {
         // };
       }, [modelPath]);
 
+    const handlePlaySound = ()=>{
+        const category_name = "Idle" // 模型动作名称
+        const animation_index = 0 // 该运动类别下的动画索引 [null => random]
+        const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
+        const audio_link = "/sounds/demo.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
+        const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
+        const expression = 4; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
+        const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
+
+        model.speak(audio_link, {
+            volume: volume,
+            // @ts-ignore
+            expression: expression,
+            resetExpression: resetExpression,
+            crossOrigin: "anonymous"
+        });
+
+        // model.motion('', animation_index, priority_number, audio_link);
+        // model.motion('', animation_index, priority_number, {
+        //     sound: audio_link,
+        //     volume: volume,
+        //     expression: null,
+        //     resetExpression: resetExpression
+        // });
+        console.log(`play sound success`)
+    }
     return (
         <>
             <canvas ref={canvasRef} />
             <div id="control"></div>
+            <button id="playSound" onClick={handlePlaySound}>Play Sound</button>
         </>
     )
 }
@@ -86,6 +116,24 @@ const loadModel = async (modelPath: string, app: PIXI.Application) => {
     // model.skew.x = Math.PI;
     // model.scale.set(2, 2);
     // model.anchor.set(0.5, 0.5);
+
+    const category_name = "Idle" // 模型动作名称
+    const animation_index = 0 // 该运动类别下的动画索引 [null => random]
+    const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
+    const audio_link = "/sounds/demo.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
+    const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
+    const expression = null; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
+    const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
+
+    // model.speak(audio_link, {
+    //     volume: volume,
+    //     // @ts-ignore
+    //     expression: expression,
+    //     resetExpression: resetExpression,
+    //     crossOrigin: "anonymous"
+    // });
+
+    return model
 }
 
 const fetchModel = async (modelPath: string) => {
