@@ -25,7 +25,7 @@ export default function PixiLive2D() {
         const app = new PIXI.Application({
           view: canvasRef.current,
           autoStart: true,
-          width: Math.ceil(pageWidth / 2),
+          width: Math.ceil(pageWidth * 0.8),
           height: Math.ceil(pageHeight * 0.8),
           backgroundColor: 0x333333
         //   transparent: true,
@@ -155,13 +155,25 @@ export default function PixiLive2D() {
         // });
         console.log(`play sound success`)
     }
+    const handleRandomEmotion = async () => {
+        if (!model) return;
+        const intents = ['joyful','happy','cheer','angry','sad','shy','love','surprised','calm'];
+        const intent = intents[Math.floor(Math.random() * intents.length)];
+        const variability = Math.random() * 0.6 + 0.2; // 0.2~0.8
+        const energy = Math.random() * 0.7 + 0.3;      // 0.3~1.0
+        const tempo = Math.random() * 0.8 + 0.7;       // 0.7~1.5
+        const duration = null; // Math.floor(1200 + Math.random() * 1200); // 1200~2400ms
+        console.log('[Intent] 触发表情/动作:', intent, { variability, energy, tempo, duration });
+        await performIntent(model, modelPath, intent as any, { variability, energy, tempo, duration, speech: '/sounds/encouragement.mp3' });
+    };
+
     return (
         <>
             <canvas ref={canvasRef} />
             <div id="control"></div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button id="playSound" onClick={handlePlaySound}>Play Sound</button>
-                <button onClick={() => performIntent(model, modelPath, 'joyful', { duration: 2000 })}>Joyful</button>
+                <button onClick={handleRandomEmotion}>Random Emotion</button>
             </div>
         </>
     )
@@ -575,10 +587,19 @@ export function playHairFlip(model: any, { duration = 800, direction = 'left', i
 
 // ============== 以下：通用“语义 -> 动作”实现（读取 physics/expressions，自适配不同模型） ==============
 
-type IntentName = 'joyful';
+type IntentName =
+    | 'joyful'
+    | 'happy'
+    | 'cheer'
+    | 'angry'
+    | 'sad'
+    | 'shy'
+    | 'love'
+    | 'surprised'
+    | 'calm';
 
 type PerformOptions = {
-    duration?: number;
+    duration?: number | null;
     speech?: string | null;
     variability?: number; // 0..1 越大越随机
     energy?: number;      // 0..1 越大动作越大
@@ -648,10 +669,100 @@ async function discoverModelResources(modelPath: string): Promise<{ physicsInput
 export async function performIntent(model: any, modelPath: string, intent: IntentName, options: PerformOptions = {}) {
     if (!model || !modelPath) return;
     lockInteraction(model, true);
+    // 所有意图开始前，先回正视线与头部
+    neutralizeFace(model);
+    // 若有语音但未指定时长，则以音频时长为准
+    if (options.speech && (options.duration == null)) {
+        try {
+            const ms = await getAudioDurationMs(options.speech);
+            console.log('audio ms', ms)
+            if (Number.isFinite(ms) && ms > 0) options.duration = ms;
+        } catch (_) {
+          console.log('audio ms error', _)
+        }
+    }
     const { physicsInputs, expressionNames } = await discoverModelResources(modelPath);
     switch (intent) {
         case 'joyful':
             await performJoyful(model, physicsInputs, expressionNames, options);
+            break;
+        case 'happy':
+            await performJoyful(model, physicsInputs, expressionNames, { ...options, energy: options.energy ?? 0.5, variability: options.variability ?? 0.3 });
+            break;
+        case 'cheer':
+            await performJoyful(model, physicsInputs, expressionNames, { ...options, energy: options.energy ?? 0.9, variability: options.variability ?? 0.5, tempo: options.tempo ?? 1.2 });
+            break;
+        case 'angry':
+            await performBasicEmotion(model, expressionNames, {
+                duration: options.duration ?? 1200,
+                micro: { browY: -0.7, eyeOpen: 0.7, mouthForm: 0.0, mouthOpen: 0.4, cheek: 0.2 },
+                head: { x: 8, z: 5 },
+                body: { x: 4, y: 3, z: 2 },
+                swayHz: 1.6,
+                swayAmp: 0.15,
+                speech: options.speech ?? null,
+                suppressMouth: Boolean(options.speech),
+            });
+            break;
+        case 'sad':
+            await performBasicEmotion(model, expressionNames, {
+                duration: options.duration ?? 1600,
+                micro: { browY: 0.3, eyeOpen: 0.6, mouthForm: 0.1, mouthOpen: 0.2, cheek: 0.0 },
+                head: { x: -6, z: -4 }, // 微微低头并向一侧
+                body: { x: -5, y: 0, z: -2 },
+                swayHz: 0.6,
+                swayAmp: 0.08,
+                speech: options.speech ?? null,
+                suppressMouth: Boolean(options.speech),
+            });
+            break;
+        case 'shy':
+            await performBasicEmotion(model, expressionNames, {
+                duration: options.duration ?? 1500,
+                micro: { browY: 0.1, eyeOpen: 0.75, mouthForm: 0.6, mouthOpen: 0.25, cheek: 0.9 },
+                head: { x: 4, z: 10 },
+                body: { x: 2, y: 3, z: 3 },
+                swayHz: 0.9,
+                swayAmp: 0.12,
+                speech: options.speech ?? null,
+                suppressMouth: Boolean(options.speech),
+            });
+            break;
+        case 'love':
+            await performBasicEmotion(model, expressionNames, {
+                duration: options.duration ?? 1800,
+                micro: { browY: 0.2, eyeOpen: 0.8, eyeSmile: 1.0, mouthForm: 0.9, mouthOpen: 0.35, cheek: 1.0 },
+                head: { x: 6, z: 12 },
+                body: { x: 4, y: 3, z: 2 },
+                swayHz: 0.8,
+                swayAmp: 0.15,
+                speech: options.speech ?? null,
+                suppressMouth: Boolean(options.speech),
+            });
+            break;
+        case 'surprised':
+            await performBasicEmotion(model, expressionNames, {
+                duration: options.duration ?? 900,
+                micro: { browY: 1.0, eyeOpen: 1.0, mouthForm: 0.2, mouthOpen: 1.0, cheek: 0.2 },
+                head: { x: -10, z: 0 }, // 微微后仰
+                body: { x: -6, y: 2, z: 0 },
+                swayHz: 1.1,
+                swayAmp: 0.1,
+                speech: options.speech ?? null,
+                suppressMouth: Boolean(options.speech),
+            });
+            break;
+        case 'calm':
+            await performBasicEmotion(model, expressionNames, {
+                duration: options.duration ?? 1200,
+                micro: { browY: 0, eyeOpen: 0.9, mouthForm: 0.2, mouthOpen: 0.1, cheek: 0.1 },
+                head: { x: 0, z: 0 },
+                body: { x: 0, y: 0, z: 0 },
+                swayHz: 0.5,
+                swayAmp: 0.05,
+                speech: options.speech ?? null,
+                suppressMouth: Boolean(options.speech),
+            });
             break;
         default:
             break;
@@ -709,6 +820,9 @@ async function performJoyful(
     // 标记将要改动的输入参数，便于结束后复原
     [headX, headZ, headY, bodyX, bodyY, bodyZ, breath].forEach(markBaseline);
 
+    // 将视线与头部快速回正，避免保持上一次鼠标焦点朝向
+    neutralizeFace(model);
+
     // 随机方向与强度
     const dir = Math.random() < 0.5 ? -1 : 1;
     const headMax = 15 + 20 * energy;    // 15~35 左右转头幅度
@@ -719,8 +833,12 @@ async function performJoyful(
     const bodyRollMax = 4 + 10 * energy; // 4~14 身体侧倾
     const breathAmp = 0.4 + 0.6 * energy; // 0.4~1.0
 
-    // 随机时长
-    duration = jitter(duration / tempo, duration * 0.15 * variability);
+    // 随机时长（若为 null，说明上层用音频时长覆盖了，这里设一个兜底）
+    if (duration == null || !Number.isFinite(duration)) {
+        duration = 1800;
+    } else {
+        duration = jitter(duration / tempo, duration * 0.15 * variability);
+    }
 
     // 预计算次级节奏频率与相位，避免逐帧随机引起抖动
     const freqHeadYaw = rnd(0.7, 1.0);
@@ -779,7 +897,7 @@ async function performJoyful(
         const elapsed = now - startTime;
         const dt = Math.max(16, now - lastTs);
         lastTs = now;
-        let p = elapsed / duration;
+        let p = elapsed / (duration as number);
         if (p > 1) p = 1;
         const tSec = elapsed / 1000;
         // 低通滤波系数（时间常数），tempo 越大越快
@@ -806,6 +924,10 @@ async function performJoyful(
             smoothSet(breath, breathValue, alpha);
         }
 
+        // 动作期间让眼球回正，避免保留点击前的视线方向
+        smoothSet('ParamEyeBallX', 0, alpha);
+        smoothSet('ParamEyeBallY', 0, alpha);
+
         if (p >= 1) {
             cancelAnimationFrame(frameId);
             // 平滑复原到动画前的值
@@ -826,6 +948,118 @@ async function performJoyful(
 
 function safeSet(model: any, paramId: string, value: number) {
     try { setModelParam(model, paramId, value); } catch (_) {}
+}
+
+function neutralizeFace(model: any) {
+    // 视线归零
+    safeSet(model, 'ParamEyeBallX', 0);
+    safeSet(model, 'ParamEyeBallY', 0);
+    // 头部角度归零（Y 轴也归零，避免继续朝向）
+    safeSet(model, 'ParamAngleX', 0);
+    safeSet(model, 'ParamAngleY', 0);
+    safeSet(model, 'ParamAngleZ', 0);
+    // 再次在下一帧强制回正一次，避免上一帧残留
+    requestAnimationFrame(() => {
+        safeSet(model, 'ParamEyeBallX', 0);
+        safeSet(model, 'ParamEyeBallY', 0);
+        safeSet(model, 'ParamAngleX', 0);
+        safeSet(model, 'ParamAngleY', 0);
+        safeSet(model, 'ParamAngleZ', 0);
+    });
+}
+
+async function getAudioDurationMs(src: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+        try {
+            const audio = new Audio();
+            audio.preload = 'metadata';
+            audio.src = src;
+            audio.onloadedmetadata = () => {
+                if (audio.duration && Number.isFinite(audio.duration)) {
+                    resolve(audio.duration * 1000);
+                } else {
+                    resolve(0);
+                }
+            };
+            audio.onerror = () => resolve(0);
+        } catch (e) {
+            resolve(0);
+        }
+    });
+}
+
+// 基础表情/动作：以表情微调 + 轻微姿态 + 轻摆组合，通用且可复原
+async function performBasicEmotion(
+    model: any,
+    expressionNames: string[],
+    cfg: {
+        duration: number;
+        micro: { browY?: number; eyeOpen?: number; eyeSmile?: number; mouthForm?: number; mouthOpen?: number; cheek?: number; };
+        head: { x?: number; z?: number; };
+        body: { x?: number; y?: number; z?: number; };
+        swayHz: number;
+        swayAmp: number;
+        speech?: string | null;
+        suppressMouth?: boolean;
+    }
+) {
+    const toRestore = new Map<string, number>();
+    const mark = (id: string) => { try { if (!toRestore.has(id)) toRestore.set(id, getModelParam(model, id)); } catch (_) {} };
+
+    const set = (id: string, val: number | undefined) => {
+        if (typeof val !== 'number') return;
+        mark(id);
+        safeSet(model, id, val);
+    };
+
+    // 表情微调（若参数不存在会被忽略）
+    set('ParamBrowLY', cfg.micro.browY);
+    set('ParamBrowRY', cfg.micro.browY);
+    set('ParamEyeLOpen', cfg.micro.eyeOpen);
+    set('ParamEyeROpen', cfg.micro.eyeOpen);
+    set('ParamEyeSmile', cfg.micro.eyeSmile);
+    set('ParamMouthForm', cfg.micro.mouthForm);
+    if (!cfg.suppressMouth) set('ParamMouthOpenY', cfg.micro.mouthOpen);
+    set('ParamCheek', cfg.micro.cheek);
+
+    // 姿态目标（一次到位 + 轻微摆动）
+    const start = Date.now();
+    let frameId: number;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    const begin: Record<string, number> = {};
+    const target: Record<string, number> = {
+        ParamAngleX: cfg.head.x ?? 0,
+        ParamAngleZ: cfg.head.z ?? 0,
+        ParamBodyAngleX: cfg.body.x ?? 0,
+        ParamBodyAngleY: cfg.body.y ?? 0,
+        ParamBodyAngleZ: cfg.body.z ?? 0,
+    };
+    Object.keys(target).forEach(id => { mark(id); begin[id] = getModelParam(model, id); });
+
+    function anim() {
+        const elapsed = Date.now() - start;
+        let p = Math.min(1, elapsed / cfg.duration);
+        const tSec = elapsed / 1000;
+        const sway = Math.sin(tSec * 2 * Math.PI * cfg.swayHz) * cfg.swayAmp;
+        for (const id of Object.keys(target)) {
+            const to = target[id] + sway * (id === 'ParamAngleZ' ? 0.6 : 1);
+            const v = lerp(begin[id], to, p);
+            safeSet(model, id, v);
+        }
+
+        if (p >= 1) {
+            // 结束后复原
+            smoothRestore(model, toRestore, 400);
+            return;
+        }
+        frameId = requestAnimationFrame(anim);
+    }
+    frameId = requestAnimationFrame(anim);
+
+    // 同步语音（如果提供）
+    if (cfg.speech && typeof model?.speak === 'function') {
+        try { model.speak(cfg.speech, { volume: 1, resetExpression: false, crossOrigin: 'anonymous' }); } catch (_) {}
+    }
 }
 
 function smoothRestore(model: any, baselines: Map<string, number>, restoreMs: number) {
