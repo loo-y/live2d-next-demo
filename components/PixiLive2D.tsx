@@ -10,6 +10,7 @@ export default function PixiLive2D() {
     const [modelPath, setModelPath] = useState('/models/VT_RetroGirl/RetroGirl.model3.json');
     // const [modelPath, setModelPath] = useState('/models/or_01/ori_01.model3.json');
     const [model, setModel] = useState<any>(null);
+    const [mouseFollowEnabled, setMouseFollowEnabled] = useState(true);
 
     useEffect(() => {
         // 确保 canvas 已经渲染
@@ -35,6 +36,9 @@ export default function PixiLive2D() {
         
         loadModel(modelPath, app, canvasRef.current).then(model=>{
             setModel(model)
+            if (model) {
+                (model as any).__mouseFollowEnabled = true;
+            }
         });
         // Live2DModel.from(modelPath).then(model => {
         //   app.stage.addChild(model);
@@ -155,6 +159,7 @@ export default function PixiLive2D() {
         // });
         console.log(`play sound success`)
     }
+
     const handleRandomEmotion = async () => {
         if (!model) return;
         const intents = ['joyful','happy','cheer','angry','sad','shy','love','surprised','calm'];
@@ -167,15 +172,44 @@ export default function PixiLive2D() {
         await performIntent(model, modelPath, intent as any, { variability, energy, tempo, duration, speech: '/sounds/encouragement.mp3' });
     };
 
+    const handleResetFace = () => {
+        if (!model) return;
+        neutralizeFace(model, { aggressive: true });
+        console.log('[Control] 脸部已回正');
+    };
+
+    const toggleMouseFollow = () => {
+        setMouseFollowEnabled(!mouseFollowEnabled);
+        if (model) {
+            // 在模型上设置标志，让 isInteractionLocked 能读取
+            (model as any).__mouseFollowEnabled = !mouseFollowEnabled;
+            // lockInteraction(model, !mouseFollowEnabled);
+        }
+        console.log('[Control] 鼠标跟随:', !mouseFollowEnabled ? '开启' : '关闭');
+    };
+
     return (
-        <>
+        <div className='relative w-full'>
             <canvas ref={canvasRef} />
             <div id="control"></div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                 <button id="playSound" onClick={handlePlaySound}>Play Sound</button>
                 <button onClick={handleRandomEmotion}>Random Emotion</button>
+                <button onClick={handleResetFace}>Reset Face</button>
+                <button className='absolute right-0'
+                    onClick={toggleMouseFollow}
+                    style={{ 
+                        backgroundColor: mouseFollowEnabled ? '#4CAF50' : '#f44336',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '4px'
+                    }}
+                >
+                    {mouseFollowEnabled ? '✓ 跟随鼠标' : '✗ 停止跟随'}
+                </button>
             </div>
-        </>
+        </div>
     )
 }
 
@@ -669,8 +703,7 @@ async function discoverModelResources(modelPath: string): Promise<{ physicsInput
 export async function performIntent(model: any, modelPath: string, intent: IntentName, options: PerformOptions = {}) {
     if (!model || !modelPath) return;
     lockInteraction(model, true);
-    // 所有意图开始前，先回正视线与头部
-    neutralizeFace(model);
+    // 注意：回正在各意图内部以轻量方式进行，避免与动画写入产生冲突
     // 若有语音但未指定时长，则以音频时长为准
     if (options.speech && (options.duration == null)) {
         try {
@@ -696,10 +729,11 @@ export async function performIntent(model: any, modelPath: string, intent: Inten
             await performBasicEmotion(model, expressionNames, {
                 duration: options.duration ?? 1200,
                 micro: { browY: -0.7, eyeOpen: 0.7, mouthForm: 0.0, mouthOpen: 0.4, cheek: 0.2 },
-                head: { x: 8, z: 5 },
-                body: { x: 4, y: 3, z: 2 },
-                swayHz: 1.6,
-                swayAmp: 0.15,
+                head: { x: 20, z: 12 },
+                body: { x: 18, y: 8, z: 6 },
+                swayHz: 2.2,
+                swayAmp: 0.25,
+                motionType: 'sharp',
                 speech: options.speech ?? null,
                 suppressMouth: Boolean(options.speech),
             });
@@ -708,10 +742,11 @@ export async function performIntent(model: any, modelPath: string, intent: Inten
             await performBasicEmotion(model, expressionNames, {
                 duration: options.duration ?? 1600,
                 micro: { browY: 0.3, eyeOpen: 0.6, mouthForm: 0.1, mouthOpen: 0.2, cheek: 0.0 },
-                head: { x: -6, z: -4 }, // 微微低头并向一侧
-                body: { x: -5, y: 0, z: -2 },
-                swayHz: 0.6,
-                swayAmp: 0.08,
+                head: { x: -18, z: -15 },
+                body: { x: -16, y: -4, z: -8 },
+                swayHz: 0.4,
+                swayAmp: 0.06,
+                motionType: 'heavy',
                 speech: options.speech ?? null,
                 suppressMouth: Boolean(options.speech),
             });
@@ -720,10 +755,11 @@ export async function performIntent(model: any, modelPath: string, intent: Inten
             await performBasicEmotion(model, expressionNames, {
                 duration: options.duration ?? 1500,
                 micro: { browY: 0.1, eyeOpen: 0.75, mouthForm: 0.6, mouthOpen: 0.25, cheek: 0.9 },
-                head: { x: 4, z: 10 },
-                body: { x: 2, y: 3, z: 3 },
-                swayHz: 0.9,
-                swayAmp: 0.12,
+                head: { x: 8, z: 25 },
+                body: { x: 6, y: 12, z: 10 },
+                swayHz: 1.1,
+                swayAmp: 0.15,
+                motionType: 'gentle',
                 speech: options.speech ?? null,
                 suppressMouth: Boolean(options.speech),
             });
@@ -732,10 +768,11 @@ export async function performIntent(model: any, modelPath: string, intent: Inten
             await performBasicEmotion(model, expressionNames, {
                 duration: options.duration ?? 1800,
                 micro: { browY: 0.2, eyeOpen: 0.8, eyeSmile: 1.0, mouthForm: 0.9, mouthOpen: 0.35, cheek: 1.0 },
-                head: { x: 6, z: 12 },
-                body: { x: 4, y: 3, z: 2 },
-                swayHz: 0.8,
-                swayAmp: 0.15,
+                head: { x: 15, z: 28 },
+                body: { x: 12, y: 10, z: 8 },
+                swayHz: 0.7,
+                swayAmp: 0.12,
+                motionType: 'warm',
                 speech: options.speech ?? null,
                 suppressMouth: Boolean(options.speech),
             });
@@ -744,10 +781,11 @@ export async function performIntent(model: any, modelPath: string, intent: Inten
             await performBasicEmotion(model, expressionNames, {
                 duration: options.duration ?? 900,
                 micro: { browY: 1.0, eyeOpen: 1.0, mouthForm: 0.2, mouthOpen: 1.0, cheek: 0.2 },
-                head: { x: -10, z: 0 }, // 微微后仰
-                body: { x: -6, y: 2, z: 0 },
-                swayHz: 1.1,
-                swayAmp: 0.1,
+                head: { x: -25, z: 0 },
+                body: { x: -20, y: 12, z: 0 },
+                swayHz: 1.8,
+                swayAmp: 0.08,
+                motionType: 'bounce',
                 speech: options.speech ?? null,
                 suppressMouth: Boolean(options.speech),
             });
@@ -758,8 +796,9 @@ export async function performIntent(model: any, modelPath: string, intent: Inten
                 micro: { browY: 0, eyeOpen: 0.9, mouthForm: 0.2, mouthOpen: 0.1, cheek: 0.1 },
                 head: { x: 0, z: 0 },
                 body: { x: 0, y: 0, z: 0 },
-                swayHz: 0.5,
-                swayAmp: 0.05,
+                swayHz: 0.3,
+                swayAmp: 0.03,
+                motionType: 'smooth',
                 speech: options.speech ?? null,
                 suppressMouth: Boolean(options.speech),
             });
@@ -820,17 +859,17 @@ async function performJoyful(
     // 标记将要改动的输入参数，便于结束后复原
     [headX, headZ, headY, bodyX, bodyY, bodyZ, breath].forEach(markBaseline);
 
-    // 将视线与头部快速回正，避免保持上一次鼠标焦点朝向
-    neutralizeFace(model);
+    // 将视线与头部快速回正（轻量，不做多帧强制），避免保持上一次鼠标焦点朝向
+    neutralizeFace(model, { forIntent: true });
 
     // 随机方向与强度
     const dir = Math.random() < 0.5 ? -1 : 1;
-    const headMax = 15 + 20 * energy;    // 15~35 左右转头幅度
-    const headYawMax = 6 + 10 * energy;  // 6~16 Y 轴转头
-    const tiltMax = 6 + 12 * energy;     // 6~18 头部侧倾
-    const bodyMax = 8 + 14 * energy;     // 8~22 身体前后摆
-    const bodyTwistMax = 6 + 12 * energy;// 6~18 身体左右扭
-    const bodyRollMax = 4 + 10 * energy; // 4~14 身体侧倾
+    const headMax = 25 + 30 * energy;    // 25~55 左右转头幅度
+    const headYawMax = 10 + 15 * energy; // 10~25 Y 轴转头
+    const tiltMax = 10 + 18 * energy;    // 10~28 头部侧倾
+    const bodyMax = 15 + 20 * energy;    // 15~35 身体前后摆
+    const bodyTwistMax = 12 + 18 * energy;// 12~30 身体左右扭
+    const bodyRollMax = 8 + 15 * energy; // 8~23 身体侧倾
     const breathAmp = 0.4 + 0.6 * energy; // 0.4~1.0
 
     // 随机时长（若为 null，说明上层用音频时长覆盖了，这里设一个兜底）
@@ -947,25 +986,59 @@ async function performJoyful(
 }
 
 function safeSet(model: any, paramId: string, value: number) {
-    try { setModelParam(model, paramId, value); } catch (_) {}
+    try { 
+        setModelParam(model, paramId, value);
+    } catch (e) { 
+        // 忽略写入异常，避免刷屏
+    }
 }
 
-function neutralizeFace(model: any) {
-    // 视线归零
-    safeSet(model, 'ParamEyeBallX', 0);
-    safeSet(model, 'ParamEyeBallY', 0);
-    // 头部角度归零（Y 轴也归零，避免继续朝向）
-    safeSet(model, 'ParamAngleX', 0);
-    safeSet(model, 'ParamAngleY', 0);
-    safeSet(model, 'ParamAngleZ', 0);
-    // 再次在下一帧强制回正一次，避免上一帧残留
-    requestAnimationFrame(() => {
+function neutralizeFace(model: any, opts?: { aggressive?: boolean; forIntent?: boolean }) {
+    const aggressive = Boolean(opts?.aggressive);
+    const forIntent = Boolean(opts?.forIntent);
+
+    // 轻量回正：仅归零关键参数，不做多帧/轮询强制；用于意图动画开始前
+    const applyZeroOnce = () => {
         safeSet(model, 'ParamEyeBallX', 0);
         safeSet(model, 'ParamEyeBallY', 0);
         safeSet(model, 'ParamAngleX', 0);
         safeSet(model, 'ParamAngleY', 0);
         safeSet(model, 'ParamAngleZ', 0);
-    });
+        safeSet(model, 'ParamBodyAngleX', 0);
+        safeSet(model, 'ParamBodyAngleY', 0);
+        safeSet(model, 'ParamBodyAngleZ', 0);
+    };
+
+    if (forIntent) {
+        applyZeroOnce();
+        return;
+    }
+
+    // 强力回正：用于用户点击“回正”按钮，允许短暂多帧巩固，但不与后续动画抢写
+    if (aggressive) {
+        // 可选：将焦点置于当前模型中心附近，减少视线偏移（以画布中心为兜底）
+        try {
+            const canvas = document.querySelector('canvas') as HTMLCanvasElement | null;
+            if (canvas && typeof (model as any).focus === 'function') {
+                const rect = canvas.getBoundingClientRect();
+                (model as any).focus(rect.width / 2, rect.height / 2);
+            }
+        } catch (_) {}
+
+        // 两帧内巩固一次
+        requestAnimationFrame(() => {
+            applyZeroOnce();
+            requestAnimationFrame(() => {
+                applyZeroOnce();
+                // 解锁交互
+                lockInteraction(model, false);
+            });
+        });
+        return;
+    }
+
+    // 默认回正：一次性归零
+    applyZeroOnce();
 }
 
 async function getAudioDurationMs(src: string): Promise<number> {
@@ -999,6 +1072,7 @@ async function performBasicEmotion(
         body: { x?: number; y?: number; z?: number; };
         swayHz: number;
         swayAmp: number;
+        motionType: 'sharp' | 'heavy' | 'gentle' | 'warm' | 'bounce' | 'smooth';
         speech?: string | null;
         suppressMouth?: boolean;
     }
@@ -1036,14 +1110,53 @@ async function performBasicEmotion(
     };
     Object.keys(target).forEach(id => { mark(id); begin[id] = getModelParam(model, id); });
 
+    // 根据情绪类型设计不同的动作曲线
+    function getMotionCurve(t: number, motionType: string): number {
+        switch (motionType) {
+            case 'sharp': // angry: 快速爆发，然后保持
+                return t < 0.3 ? t / 0.3 : 1;
+            case 'heavy': // sad: 缓慢下沉，然后轻微起伏
+                return t < 0.6 ? t / 0.6 : 0.8 + 0.2 * Math.sin((t - 0.6) * Math.PI * 2);
+            case 'gentle': // shy: 轻柔渐进，然后轻微摆动
+                return t < 0.7 ? t / 0.7 : 0.9 + 0.1 * Math.sin((t - 0.7) * Math.PI * 1.5);
+            case 'warm': // love: 温暖展开，然后柔和波动
+                return t < 0.5 ? t / 0.5 : 0.95 + 0.05 * Math.sin((t - 0.5) * Math.PI * 1.2);
+            case 'bounce': // surprised: 瞬间爆发，然后回弹
+                return t < 0.2 ? t / 0.2 : t < 0.6 ? 1 : 1 - Math.pow((t - 0.6) / 0.4, 2);
+            case 'smooth': // calm: 平滑过渡，然后极轻微摆动
+                return t < 0.8 ? t / 0.8 : 0.98 + 0.02 * Math.sin((t - 0.8) * Math.PI * 0.8);
+            default:
+                return t;
+        }
+    }
+
     function anim() {
         const elapsed = Date.now() - start;
         let p = Math.min(1, elapsed / cfg.duration);
         const tSec = elapsed / 1000;
-        const sway = Math.sin(tSec * 2 * Math.PI * cfg.swayHz) * cfg.swayAmp;
+        
+        // 使用情绪特定的动作曲线
+        const motionCurve = getMotionCurve(p, cfg.motionType);
+        
+        // 根据情绪类型调整摆动
+        let sway: number;
+        switch (cfg.motionType) {
+            case 'sharp':
+                sway = Math.sin(tSec * 2 * Math.PI * cfg.swayHz) * cfg.swayAmp * (p < 0.3 ? 0.5 : 1);
+                break;
+            case 'heavy':
+                sway = Math.sin(tSec * 2 * Math.PI * cfg.swayHz) * cfg.swayAmp * (p < 0.6 ? 0.3 : 1);
+                break;
+            case 'bounce':
+                sway = Math.sin(tSec * 2 * Math.PI * cfg.swayHz * 3) * cfg.swayAmp * (p < 0.2 ? 0.2 : 1);
+                break;
+            default:
+                sway = Math.sin(tSec * 2 * Math.PI * cfg.swayHz) * cfg.swayAmp;
+        }
+        
         for (const id of Object.keys(target)) {
             const to = target[id] + sway * (id === 'ParamAngleZ' ? 0.6 : 1);
-            const v = lerp(begin[id], to, p);
+            const v = lerp(begin[id], to, motionCurve);
             safeSet(model, id, v);
         }
 
@@ -1093,5 +1206,12 @@ function lockInteraction(model: any, locked: boolean) {
     try { (model as any)[INTERACTION_LOCK_KEY] = locked; } catch (_) {}
 }
 function isInteractionLocked(model: any): boolean {
-    try { return Boolean((model as any)[INTERACTION_LOCK_KEY]); } catch (_) { return false; }
+    try { 
+        // 检查是否被意图执行锁定，或者用户手动关闭了跟随
+        const intentLocked = Boolean((model as any)[INTERACTION_LOCK_KEY]);
+        const userDisabled = !(model as any).__mouseFollowEnabled;
+        return intentLocked || userDisabled;
+    } catch (_) { 
+        return false; 
+    }
 }
