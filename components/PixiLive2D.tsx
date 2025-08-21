@@ -8,6 +8,8 @@ import * as PIXI from 'pixi.js';
 export default function PixiLive2D() {
     const canvasRef = useRef(null);
     const canvasContainerRef = useRef(null);
+    const currentAppRef = useRef<PIXI.Application | null>(null);
+    const currentModelRef = useRef<any>(null);
     
     // 从URL参数中读取模型名称，如果没有则使用默认值
     const getModelPathFromUrl = () => {
@@ -52,6 +54,27 @@ export default function PixiLive2D() {
     const [model, setModel] = useState<any>(null);
     const [mouseFollowEnabled, setMouseFollowEnabled] = useState(true);
 
+    // 清理函数：清理模型资源
+    const cleanupResources = () => {
+        console.log('[Cleanup] 开始清理模型资源...');
+        
+        // 清理当前模型
+        if (currentModelRef.current) {
+            try {
+                // 移除事件监听器
+                if (currentModelRef.current.destroy) {
+                    currentModelRef.current.destroy();
+                }
+                currentModelRef.current = null;
+            } catch (e) {
+                console.warn('[Cleanup] 清理模型时出错:', e);
+            }
+        }
+        
+        // 重置状态
+        setModel(null);
+    };
+
     useEffect(() => {
         // 确保 canvas 已经渲染
         if (!canvasRef.current) return;
@@ -59,41 +82,50 @@ export default function PixiLive2D() {
 
         if(!window.Live2DCubismCore) return;
         
-        // if(!modelPath) return;
-    
         const pageWidth = document.documentElement.clientWidth;
         const canvasContainerWidth = (canvasContainerRef.current as any).clientWidth;
         const canvasContainerHeight = (canvasContainerRef.current as any).clientHeight;
         const pageHeight = document.documentElement.clientHeight;
+        
         // 创建并初始化 PIXI 应用
         const app = new PIXI.Application({
-          view: canvasRef.current,
-          autoStart: true,
-          width: canvasContainerWidth,
-          height: pageHeight * 0.7,
-          backgroundColor: 0x333333
-        //   transparent: true,
+            view: canvasRef.current,
+            autoStart: true,
+            width: canvasContainerWidth,
+            height: canvasContainerHeight,
+            backgroundColor: 0x333333
         });
-    
-
         
-        loadModel(modelPath, app, canvasRef.current).then(model=>{
-            setModel(model)
+        // 保存引用
+        currentAppRef.current = app;
+        
+        loadModel(modelPath, app, canvasRef.current).then(model => {
             if (model) {
-                (model as any).__mouseFollowEnabled = true;
+                currentModelRef.current = model;
+                setModel(model);
+                (model as any).__mouseFollowEnabled = mouseFollowEnabled;
+                console.log('[Model] 模型加载完成:', modelPath);
             }
+        }).catch(error => {
+            console.error('[Model] 模型加载失败:', error);
         });
-        // Live2DModel.from(modelPath).then(model => {
-        //   app.stage.addChild(model);
-        //   model.scale.set(0.25);
-        //   // ... 其他交互设置
-        // });
-    
-        // 清理函数
-        // return () => {
-        //   app.destroy(true, { children: true });
-        // };
-      }, [modelPath]);
+        
+        // 清理函数 - 延迟销毁旧实例
+        return () => {
+            // 延迟销毁，避免在useEffect执行期间调用
+            setTimeout(() => {
+                if (currentAppRef.current === app) {
+                    // 只有当前应用还是这个实例时才销毁
+                    try {
+                        app.destroy(true, { children: true });
+                        console.log('[Cleanup] 旧PIXI应用已销毁');
+                    } catch (e) {
+                        console.warn('[Cleanup] 销毁PIXI应用时出错:', e);
+                    }
+                }
+            }, 100); // 延迟100ms确保新实例已经创建
+        };
+    }, [modelPath]);
 
     const handlePlaySound = async ()=>{
         const category_name = "Idle" // 模型动作名称
@@ -245,7 +277,7 @@ export default function PixiLive2D() {
     };
 
     return (
-        <div className='relative w-full' ref={canvasContainerRef}>
+        <div className='relative w-full h-[70vh]' ref={canvasContainerRef}>
             <canvas ref={canvasRef} />
             <div id="control"></div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
