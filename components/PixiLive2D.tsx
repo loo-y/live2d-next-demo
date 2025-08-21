@@ -7,27 +7,70 @@ import * as PIXI from 'pixi.js';
 
 export default function PixiLive2D() {
     const canvasRef = useRef(null);
-    const [modelPath, setModelPath] = useState('/models/VT_RetroGirl/RetroGirl.model3.json');
-    // const [modelPath, setModelPath] = useState('/models/or_01/ori_01.model3.json');
+    const canvasContainerRef = useRef(null);
+    
+    // 从URL参数中读取模型名称，如果没有则使用默认值
+    const getModelPathFromUrl = () => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const modelParam = urlParams.get('model');
+            if (modelParam) {
+                // 支持多种模型名称映射
+                const modelMapping: { [key: string]: string } = {
+                    'or_01': '/models/or_01/ori_01.model3.json',
+                    'vt_retrogirl': '/models/VT_RetroGirl/RetroGirl.model3.json',
+                    'haru': '/models/haru/haru.model3.json',
+                    'hiyori': '/models/Hiyori/Hiyori.model3.json',
+                    'mark': '/models/Mark/Mark.model3.json',
+                    'natori': '/models/Natori/Natori.model3.json',
+                    'rice': '/models/Rice/Rice.model3.json',
+                    'mao': '/models/Mao/Mao.model3.json',
+                    'wanko': '/models/Wanko/Wanko.model3.json',
+                    'koharu': '/models/koharu/koharu.model3.json',
+                    'haruto': '/models/haruto/haruto.model3.json'
+                };
+                
+                const normalizedModel = modelParam.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                const modelPath = modelMapping[normalizedModel];
+                
+                if (modelPath) {
+                    console.log(`[URL] 从URL参数读取到模型: ${modelParam} -> ${modelPath}`);
+                    return modelPath;
+                } else {
+                    console.warn(`[URL] 未知的模型名称: ${modelParam}，使用默认模型`);
+                }
+            }
+        }
+        
+        // 默认模型
+        const defaultModel = '/models/VT_RetroGirl/RetroGirl.model3.json';
+        console.log(`[URL] 使用默认模型: ${defaultModel}`);
+        return defaultModel;
+    };
+    
+    const [modelPath, setModelPath] = useState(getModelPathFromUrl());
     const [model, setModel] = useState<any>(null);
     const [mouseFollowEnabled, setMouseFollowEnabled] = useState(true);
 
     useEffect(() => {
         // 确保 canvas 已经渲染
         if (!canvasRef.current) return;
+        if(!canvasContainerRef.current) return;
 
         if(!window.Live2DCubismCore) return;
         
         // if(!modelPath) return;
     
         const pageWidth = document.documentElement.clientWidth;
+        const canvasContainerWidth = (canvasContainerRef.current as any).clientWidth;
+        const canvasContainerHeight = (canvasContainerRef.current as any).clientHeight;
         const pageHeight = document.documentElement.clientHeight;
         // 创建并初始化 PIXI 应用
         const app = new PIXI.Application({
           view: canvasRef.current,
           autoStart: true,
-          width: Math.ceil(pageWidth * 0.8),
-          height: Math.ceil(pageHeight * 0.8),
+          width: canvasContainerWidth,
+          height: pageHeight * 0.7,
           backgroundColor: 0x333333
         //   transparent: true,
         });
@@ -56,7 +99,7 @@ export default function PixiLive2D() {
         const category_name = "Idle" // 模型动作名称
         const animation_index = 0 // 该运动类别下的动画索引 [null => random]
         const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
-        const audio_link = "/sounds/demo.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
+        const audio_link = "/sounds/test.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
         const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
         const expression = 4; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
         const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
@@ -169,7 +212,7 @@ export default function PixiLive2D() {
         const tempo = Math.random() * 0.8 + 0.7;       // 0.7~1.5
         const duration = null; // Math.floor(1200 + Math.random() * 1200); // 1200~2400ms
         console.log('[Intent] 触发表情/动作:', intent, { variability, energy, tempo, duration });
-        await performIntent(model, modelPath, intent as any, { variability, energy, tempo, duration, speech: '/sounds/encouragement.mp3' });
+        await performIntent(model, modelPath, intent as any, { variability, energy, tempo, duration, speech: '/sounds/aaa.mp3' });
     };
 
     const handleResetFace = () => {
@@ -188,11 +231,49 @@ export default function PixiLive2D() {
         console.log('[Control] 鼠标跟随:', !mouseFollowEnabled ? '开启' : '关闭');
     };
 
+    const handleModelChange = (newModelPath: string) => {
+        setModelPath(newModelPath);
+        
+        // 更新URL参数
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            const modelName = newModelPath.split('/')[2]; // 从路径中提取模型名称
+            url.searchParams.set('model', modelName);
+            window.history.replaceState({}, '', url.toString());
+            console.log(`[URL] 已更新URL参数: model=${modelName}`);
+        }
+    };
+
     return (
-        <div className='relative w-full'>
+        <div className='relative w-full' ref={canvasContainerRef}>
             <canvas ref={canvasRef} />
             <div id="control"></div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* 模型选择器 */}
+                <select 
+                    value={modelPath} 
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    style={{ 
+                        padding: '8px 12px', 
+                        borderRadius: '4px', 
+                        border: '1px solid #ccc',
+                        backgroundColor: 'white',
+                        fontSize: '14px'
+                    }}
+                >
+                    <option value="/models/VT_RetroGirl/RetroGirl.model3.json">VT_RetroGirl</option>
+                    <option value="/models/or_01/ori_01.model3.json">or_01</option>
+                    <option value="/models/haru/haru.model3.json">haru</option>
+                    <option value="/models/Hiyori/Hiyori.model3.json">Hiyori</option>
+                    <option value="/models/Mark/Mark.model3.json">Mark</option>
+                    <option value="/models/Natori/Natori.model3.json">Natori</option>
+                    <option value="/models/Rice/Rice.model3.json">Rice</option>
+                    <option value="/models/Mao/Mao.model3.json">Mao</option>
+                    <option value="/models/Wanko/Wanko.model3.json">Wanko</option>
+                    <option value="/models/koharu/koharu.model3.json">koharu</option>
+                    <option value="/models/haruto/haruto.model3.json">haruto</option>
+                </select>
+                
                 <button id="playSound" onClick={handlePlaySound}>Play Sound</button>
                 <button onClick={handleRandomEmotion}>Random Emotion</button>
                 <button onClick={handleResetFace}>Reset Face</button>
@@ -229,7 +310,34 @@ const loadModel = async (modelPath: string, app: PIXI.Application, canvasDom: HT
         autoInteract: false,
     });
     app.stage.addChild(model);
-    model.scale.set(0.25);
+    
+    // 自动计算合适的缩放系数，让模型适应画布
+    const modelWidth = model.internalModel.width;
+    const modelHeight = model.internalModel.height;
+    const canvasWidth = app.screen.width;
+    const canvasHeight = app.screen.height;
+    
+    // 计算缩放系数，让模型在画布中占据合适比例（比如画布高度的70%）
+    const targetHeight = canvasHeight * 1;
+    const targetWidth = canvasWidth * 0.7;
+    
+    const scaleX = targetWidth / modelWidth;
+    const scaleY = targetHeight / modelHeight;
+    const scale = Math.min(scaleX, scaleY); // 取较小的值，确保模型完全显示在画布内
+    
+    console.log(`[Model Load] 模型尺寸: ${modelWidth}x${modelHeight}, 画布尺寸: ${canvasWidth}x${canvasHeight}, 计算缩放: ${scale}`);
+    
+    model.scale.set(scale);
+    
+    // 将模型居中显示
+    model.x = canvasWidth / 2;
+    model.y = canvasHeight / 2;
+    
+    // 设置模型的锚点为中心点
+    model.anchor.set(0.5, 0.5);
+    
+    console.log(`[Model Load] 模型已居中，位置: (${model.x}, ${model.y}), 缩放: ${scale}`);
+    
     // draggable(model);
     addFrame(model);
 
@@ -271,7 +379,7 @@ const loadModel = async (modelPath: string, app: PIXI.Application, canvasDom: HT
     const category_name = "Idle" // 模型动作名称
     const animation_index = 0 // 该运动类别下的动画索引 [null => random]
     const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
-    const audio_link = "/sounds/demo.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
+    const audio_link = "/sounds/aaa.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
     const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
     const expression = null; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
     const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
