@@ -1,430 +1,458 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from 'react';
 // import { Live2DModel } from 'pixi-live2d-display-lipsyncpatch/cubism4';
 import * as PIXI from 'pixi.js';
 // import * as CUBISM4 from 'pixi-live2d-display-lipsyncpatch/cubism4';
 
-
-export default function PixiLive2D() {
-    const canvasRef = useRef(null);
-    const canvasContainerRef = useRef(null);
-    const currentAppRef = useRef<PIXI.Application | null>(null);
-    const currentModelRef = useRef<any>(null);
-    
-    // 从URL参数中读取模型名称，如果没有则使用默认值
-    const getModelPathFromUrl = () => {
-        if (typeof window !== 'undefined') {
-            const urlParams = new URLSearchParams(window.location.search);
-            const modelParam = urlParams.get('model');
-            if (modelParam) {
-                // 支持多种模型名称映射
-                const modelMapping: { [key: string]: string } = {
-                    'or_01': '/models/or_01/ori_01.model3.json',
-                    'vt_retrogirl': '/models/VT_RetroGirl/RetroGirl.model3.json',
-                    'haru': '/models/haru/haru.model3.json',
-                    'hiyori': '/models/Hiyori/Hiyori.model3.json',
-                    'mark': '/models/Mark/Mark.model3.json',
-                    'natori': '/models/Natori/Natori.model3.json',
-                    'rice': '/models/Rice/Rice.model3.json',
-                    'mao': '/models/Mao/Mao.model3.json',
-                    'wanko': '/models/Wanko/Wanko.model3.json',
-                    'koharu': '/models/koharu/koharu.model3.json',
-                    'haruto': '/models/haruto/haruto.model3.json'
-                };
-                
-                const normalizedModel = modelParam.toLowerCase().replace(/[^a-z0-9_]/g, '');
-                const modelPath = modelMapping[normalizedModel];
-                
-                if (modelPath) {
-                    console.log(`[URL] 从URL参数读取到模型: ${modelParam} -> ${modelPath}`);
-                    return modelPath;
-                } else {
-                    console.warn(`[URL] 未知的模型名称: ${modelParam}，使用默认模型`);
-                }
-            }
-        }
-        
-        // 默认模型
-        const defaultModel = '/models/VT_RetroGirl/RetroGirl.model3.json';
-        console.log(`[URL] 使用默认模型: ${defaultModel}`);
-        return defaultModel;
-    };
-    
-    const [modelPath, setModelPath] = useState(getModelPathFromUrl());
-    const [model, setModel] = useState<any>(null);
-    const [mouseFollowEnabled, setMouseFollowEnabled] = useState(true);
-
-    // 清理函数：清理模型资源
-    const cleanupResources = () => {
-        console.log('[Cleanup] 开始清理模型资源...');
-        
-        // 清理当前模型
-        if (currentModelRef.current) {
-            try {
-                // 移除事件监听器
-                if (currentModelRef.current.destroy) {
-                    currentModelRef.current.destroy();
-                }
-                currentModelRef.current = null;
-            } catch (e) {
-                console.warn('[Cleanup] 清理模型时出错:', e);
-            }
-        }
-        
-        // 重置状态
-        setModel(null);
-    };
-
-    useEffect(() => {
-        // 确保 canvas 已经渲染
-        if (!canvasRef.current) return;
-        if(!canvasContainerRef.current) return;
-
-        if(!window.Live2DCubismCore) return;
-        
-        const pageWidth = document.documentElement.clientWidth;
-        const canvasContainerWidth = (canvasContainerRef.current as any).clientWidth;
-        const canvasContainerHeight = (canvasContainerRef.current as any).clientHeight;
-        const pageHeight = document.documentElement.clientHeight;
-        
-        // 创建并初始化 PIXI 应用
-        const app = new PIXI.Application({
-            view: canvasRef.current,
-            autoStart: true,
-            width: canvasContainerWidth,
-            height: canvasContainerHeight,
-            backgroundColor: 0x333333
-        });
-        
-        // 保存引用
-        currentAppRef.current = app;
-        
-        loadModel(modelPath, app, canvasRef.current).then(model => {
-            if (model) {
-                currentModelRef.current = model;
-                setModel(model);
-                (model as any).__mouseFollowEnabled = mouseFollowEnabled;
-                console.log('[Model] 模型加载完成:', modelPath);
-            }
-        }).catch(error => {
-            console.error('[Model] 模型加载失败:', error);
-        });
-        
-        // 清理函数 - 延迟销毁旧实例
-        return () => {
-            // 延迟销毁，避免在useEffect执行期间调用
-            setTimeout(() => {
-                if (currentAppRef.current === app) {
-                    // 只有当前应用还是这个实例时才销毁
-                    try {
-                        app.destroy(true, { children: true });
-                        console.log('[Cleanup] 旧PIXI应用已销毁');
-                    } catch (e) {
-                        console.warn('[Cleanup] 销毁PIXI应用时出错:', e);
-                    }
-                }
-            }, 100); // 延迟100ms确保新实例已经创建
-        };
-    }, [modelPath]);
-
-    const handlePlaySound = async ()=>{
-        const category_name = "Idle" // 模型动作名称
-        const animation_index = 0 // 该运动类别下的动画索引 [null => random]
-        const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
-        const audio_link = "/sounds/test.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
-        const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
-        const expression = 4; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
-        const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
-
-
-        // 眨眼，1秒后睁开
-        // setModelParam(model, 'ParamEyeLOpen', 0)
-        // setTimeout(() => {
-        //     setModelParam(model, 'ParamEyeLOpen', 1);
-        // }, 1000);
-
-        // 声音嘴型同步
-        model.speak(audio_link, {
-            volume: volume,
-            // @ts-ignore
-            expression: expression,
-            resetExpression: resetExpression,
-            crossOrigin: "anonymous"
-        });
-
-        // let frameId;
-        // const startTime = Date.now();
-        // const animateBreathing = () => {
-        //     let elapsedTime = Date.now() - startTime;
-        //     elapsedTime = 5;
-        //     // 使用sin函数创建一个-0.5到0.5的平滑周期性数值
-        //     const breathValue = Math.sin(elapsedTime / 1000) * 0.5;
-
-        //     // 调用我们自制的便捷函数
-        //     setModelParam(model, 'ParamBodyAngleY', elapsedTime);
-
-        //     frameId = requestAnimationFrame(animateBreathing);
-        // };
-        // animateBreathing();
-
-    
-        // const paramId = 'ParamBodyAngleY';
-        // const impactValue = 50; // 使用一个远超常规的大数值
-        // console.log(`Testing ${paramId} with high impact value: ${impactValue}`);
-    
-        // // 1. 猛地向上倾斜
-        // setModelParam(model, paramId, impactValue);
-    
-        // // 2. 延迟后猛地向下倾斜
-        // setTimeout(() => {
-        //     setModelParam(model, paramId, -impactValue);
-        // }, 200);
-    
-        // // 3. 最后恢复
-        // setTimeout(() => {
-        //     setModelParam(model, paramId, 0);
-        // }, 400);
-
-
-        // const paramId = 'ParamBodyAngleX';
-        // const impactValue = 30;
-    
-        // console.log(`Testing ${paramId} for dramatic effect!`);
-    
-        // setModelParam(model, paramId, impactValue);
-        // setTimeout(() => setModelParam(model, paramId, -impactValue), 250);
-        // setTimeout(() => setModelParam(model, paramId, 0), 500);
-
-
-        // const paramId = 'ParamBodyAngleX';
-        // let impactValue = 0;
-    
-        // console.log(`Testing ${paramId} for dramatic effect!`);
-    
-        // // 动作调试
-        // while(impactValue < 100){
-        //     setModelParam(model, paramId, impactValue);
-        //     setModelParam(model, 'ParamBodyAngleY', impactValue);
-        //     impactValue += 0.05;
-        //     await new Promise(resolve => setTimeout(resolve, 1));
-        // }
-
-        // while(impactValue > 0){
-        //     setModelParam(model, paramId, impactValue);
-        //     setModelParam(model, 'ParamBodyAngleY', impactValue);
-        //     impactValue -= 0.05;
-        //     await new Promise(resolve => setTimeout(resolve, 1));
-        // }
-
-
-
-
-        // playJoyfulJump(model, 5000);
-        // playHandsOnChest(model, 5000);
-        playHairFlip(model, {
-            duration: 5000,
-        })
-
-        // model.motion('', 3, priority_number);
-        // model.motion('', animation_index, priority_number, {
-        //     sound: audio_link,
-        //     volume: volume,
-        //     expression: null,
-        //     resetExpression: resetExpression
-        // });
-        console.log(`play sound success`)
-    }
-
-    const handleRandomEmotion = async () => {
-        if (!model) return;
-        const intents = ['joyful','happy','cheer','angry','sad','shy','love','surprised','calm'];
-        const intent = intents[Math.floor(Math.random() * intents.length)];
-        const variability = Math.random() * 0.6 + 0.2; // 0.2~0.8
-        const energy = Math.random() * 0.7 + 0.3;      // 0.3~1.0
-        const tempo = Math.random() * 0.8 + 0.7;       // 0.7~1.5
-        const duration = null; // Math.floor(1200 + Math.random() * 1200); // 1200~2400ms
-        console.log('[Intent] 触发表情/动作:', intent, { variability, energy, tempo, duration });
-        await performIntent(model, modelPath, intent as any, { variability, energy, tempo, duration, speech: '/sounds/aaa.mp3' });
-    };
-
-    const handleResetFace = () => {
-        if (!model) return;
-        neutralizeFace(model, { aggressive: true });
-        console.log('[Control] 脸部已回正');
-    };
-
-    const toggleMouseFollow = () => {
-        setMouseFollowEnabled(!mouseFollowEnabled);
-        if (model) {
-            // 在模型上设置标志，让 isInteractionLocked 能读取
-            (model as any).__mouseFollowEnabled = !mouseFollowEnabled;
-            // lockInteraction(model, !mouseFollowEnabled);
-        }
-        console.log('[Control] 鼠标跟随:', !mouseFollowEnabled ? '开启' : '关闭');
-    };
-
-    const handleModelChange = (newModelPath: string) => {
-        setModelPath(newModelPath);
-        
-        // 更新URL参数
-        if (typeof window !== 'undefined') {
-            const url = new URL(window.location.href);
-            const modelName = newModelPath.split('/')[2]; // 从路径中提取模型名称
-            url.searchParams.set('model', modelName);
-            window.history.replaceState({}, '', url.toString());
-            console.log(`[URL] 已更新URL参数: model=${modelName}`);
-        }
-    };
-
-    return (
-        <div className='relative w-full h-[70vh]' ref={canvasContainerRef}>
-            <canvas ref={canvasRef} />
-            <div id="control"></div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* 模型选择器 */}
-                <select 
-                    value={modelPath} 
-                    onChange={(e) => handleModelChange(e.target.value)}
-                    style={{ 
-                        padding: '8px 12px', 
-                        borderRadius: '4px', 
-                        border: '1px solid #ccc',
-                        backgroundColor: 'white',
-                        fontSize: '14px'
-                    }}
-                >
-                    <option value="/models/VT_RetroGirl/RetroGirl.model3.json">VT_RetroGirl</option>
-                    <option value="/models/or_01/ori_01.model3.json">or_01</option>
-                    <option value="/models/haru/haru.model3.json">haru</option>
-                    <option value="/models/Hiyori/Hiyori.model3.json">Hiyori</option>
-                    <option value="/models/Mark/Mark.model3.json">Mark</option>
-                    <option value="/models/Natori/Natori.model3.json">Natori</option>
-                    <option value="/models/Rice/Rice.model3.json">Rice</option>
-                    <option value="/models/Mao/Mao.model3.json">Mao</option>
-                    <option value="/models/Wanko/Wanko.model3.json">Wanko</option>
-                    <option value="/models/koharu/koharu.model3.json">koharu</option>
-                    <option value="/models/haruto/haruto.model3.json">haruto</option>
-                </select>
-                
-                <button id="playSound" onClick={handlePlaySound}>Play Sound</button>
-                <button onClick={handleRandomEmotion}>Random Emotion</button>
-                <button onClick={handleResetFace}>Reset Face</button>
-                <button className='absolute right-0'
-                    onClick={toggleMouseFollow}
-                    style={{ 
-                        backgroundColor: mouseFollowEnabled ? '#4CAF50' : '#f44336',
-                        color: 'white',
-                        border: 'none',
-                        padding: '8px 16px',
-                        borderRadius: '4px'
-                    }}
-                >
-                    {mouseFollowEnabled ? '✓ 跟随鼠标' : '✗ 停止跟随'}
-                </button>
-            </div>
-        </div>
-    )
+// 轻量类型：覆盖代码中用到的最小集，避免使用 any
+interface Live2DInternalCoreModel {
+	setParameterValueById(id: string, value: number, weight?: number): void;
+	getParameterValueById(id: string): number;
+	getParameterCount?(): number;
+	getParameterId?(index: number): string;
+}
+interface Live2DInternalModel {
+	width: number;
+	height: number;
+	coreModel: Live2DInternalCoreModel;
+}
+export interface Live2DModelLike {
+	internalModel: Live2DInternalModel;
+	anchor: { set(x: number, y?: number): void };
+	scale: { set(x: number, y?: number): void };
+	x: number;
+	y: number;
+	speak?(src: string, options?: unknown): void;
+	expression?(name?: unknown): void;
+	motion?(group: string, index?: number | null, priority?: number, options?: unknown): void;
+	on?(event: string, cb: (arg: unknown) => void): void;
+	addChild?(child: unknown): void;
+	focus?(x: number, y: number): void;
+	destroy?(): void;
 }
 
 
-const loadModel = async (modelPath: string, app: PIXI.Application, canvasDom: HTMLCanvasElement) => {
-    console.log(`loadModel`, modelPath)
-    while(!window.Live2DCubismCore) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-    }
-    if(!window.Live2DCubismCore) return;
-    // @ts-ignore
-    // window.PIXI = PIXI;
-    const { Live2DModel } = await import('pixi-live2d-display-lipsyncpatch/cubism4');
-    const model = await Live2DModel.from(modelPath, {
-        ticker: PIXI.Ticker.shared,
-        // 关闭库默认的自动交互，改为我们自行控制（以便在动作期间暂停跟随鼠标）
-        autoInteract: false,
-    });
-    app.stage.addChild(model);
-    
-    // 自动计算合适的缩放系数，让模型适应画布
-    const modelWidth = model.internalModel.width;
-    const modelHeight = model.internalModel.height;
-    const canvasWidth = app.screen.width;
-    const canvasHeight = app.screen.height;
-    
-    // 计算缩放系数，让模型在画布中占据合适比例（比如画布高度的70%）
-    const targetHeight = canvasHeight * 1;
-    const targetWidth = canvasWidth * 0.7;
-    
-    const scaleX = targetWidth / modelWidth;
-    const scaleY = targetHeight / modelHeight;
-    const scale = Math.min(scaleX, scaleY); // 取较小的值，确保模型完全显示在画布内
-    
-    console.log(`[Model Load] 模型尺寸: ${modelWidth}x${modelHeight}, 画布尺寸: ${canvasWidth}x${canvasHeight}, 计算缩放: ${scale}`);
-    
-    model.scale.set(scale);
-    
-    // 将模型居中显示
-    model.x = canvasWidth / 2;
-    model.y = canvasHeight / 2;
-    
-    // 设置模型的锚点为中心点
-    model.anchor.set(0.5, 0.5);
-    
-    console.log(`[Model Load] 模型已居中，位置: (${model.x}, ${model.y}), 缩放: ${scale}`);
-    
-    // draggable(model);
-    addFrame(model);
+export default function PixiLive2D() {
+	const canvasRef = useRef<HTMLCanvasElement | null>(null);
+	const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+	const currentAppRef = useRef<PIXI.Application | null>(null);
+	const currentModelRef = useRef<Live2DModelLike | null>(null);
+	
+	// 从URL参数中读取模型名称，如果没有则使用默认值
+	const getModelPathFromUrl = () => {
+		if (typeof window !== 'undefined') {
+			const urlParams = new URLSearchParams(window.location.search);
+			const modelParam = urlParams.get('model');
+			if (modelParam) {
+				// 支持多种模型名称映射
+				const modelMapping: { [key: string]: string } = {
+					'or_01': '/models/or_01/ori_01.model3.json',
+					'vt_retrogirl': '/models/VT_RetroGirl/RetroGirl.model3.json',
+					'haru': '/models/haru/haru.model3.json',
+					'hiyori': '/models/Hiyori/Hiyori.model3.json',
+					'mark': '/models/Mark/Mark.model3.json',
+					'natori': '/models/Natori/Natori.model3.json',
+					'rice': '/models/Rice/Rice.model3.json',
+					'mao': '/models/Mao/Mao.model3.json',
+					'wanko': '/models/Wanko/Wanko.model3.json',
+					'koharu': '/models/koharu/koharu.model3.json',
+					'haruto': '/models/haruto/haruto.model3.json'
+				};
+				
+				const normalizedModel = modelParam.toLowerCase().replace(/[^a-z0-9_]/g, '');
+				const modelPath = modelMapping[normalizedModel];
+				
+				if (modelPath) {
+					console.log(`[URL] 从URL参数读取到模型: ${modelParam} -> ${modelPath}`);
+					return modelPath;
+				} else {
+					console.warn(`[URL] 未知的模型名称: ${modelParam}，使用默认模型`);
+				}
+			}
+		}
+		
+		// 默认模型
+		const defaultModel = '/models/VT_RetroGirl/RetroGirl.model3.json';
+		console.log(`[URL] 使用默认模型: ${defaultModel}`);
+		return defaultModel;
+	};
+	
+	const [modelPath, setModelPath] = useState(getModelPathFromUrl());
+	const [model, setModel] = useState<Live2DModelLike | null>(null);
+	const [mouseFollowEnabled, setMouseFollowEnabled] = useState(true);
 
-    // 手动跟随鼠标：仅在未执行意图时启用
-    const handleMouseMove = (event: MouseEvent) => {
-        if (isInteractionLocked(model)) return;
-        const rect = canvasDom.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        try { (model as any).focus(x, y); } catch (_) {}
-    };
-    window.addEventListener('mousemove', handleMouseMove);
+	// 清理函数：清理模型资源
+	const cleanupResources = () => {
+		console.log('[Cleanup] 开始清理模型资源...');
+		
+		// 清理当前模型
+		if (currentModelRef.current) {
+			try {
+				// 移除事件监听器
+				if (currentModelRef.current.destroy) {
+					currentModelRef.current.destroy();
+				}
+				currentModelRef.current = null;
+			} catch (e) {
+				console.warn('[Cleanup] 清理模型时出错:', e);
+			}
+		}
+		
+		// 重置状态
+		setModel(null);
+	};
 
-    setModelParam(model, 'ParamEyeLOpen', 0)
+	useEffect(() => {
+		// 确保 canvas 已经渲染
+		if (!canvasRef.current) return;
+		if(!canvasContainerRef.current) return;
 
-    setTimeout(() => {
-        setModelParam(model, 'ParamEyeLOpen', 1);
-    }, 1000);
+		if(!window.Live2DCubismCore) return;
+		
+		const pageWidth = document.documentElement.clientWidth;
+		const canvasContainerWidth = (canvasContainerRef.current!).clientWidth;
+		const canvasContainerHeight = (canvasContainerRef.current!).clientHeight;
+		const pageHeight = document.documentElement.clientHeight;
+		
+		// 创建并初始化 PIXI 应用
+		const app = new PIXI.Application({
+			view: canvasRef.current,
+			autoStart: true,
+			width: canvasContainerWidth,
+			height: canvasContainerHeight,
+			backgroundColor: 0x333333
+		});
+		
+		// 保存引用
+		currentAppRef.current = app;
+		
+		loadModel(modelPath, app, canvasRef.current).then(model => {
+			if (model) {
+				currentModelRef.current = model as Live2DModelLike;
+				setModel(model as Live2DModelLike);
+				(model as unknown as Record<string, unknown>).__mouseFollowEnabled = mouseFollowEnabled;
+				console.log('[Model] 模型加载完成:', modelPath);
+			}
+		}).catch(error => {
+			console.error('[Model] 模型加载失败:', error);
+		});
+		
+		// 清理函数 - 延迟销毁旧实例
+		return () => {
+			// 延迟销毁，避免在useEffect执行期间调用
+			setTimeout(() => {
+				if (currentAppRef.current === app) {
+					// 只有当前应用还是这个实例时才销毁
+					try {
+						app.destroy(true, { children: true });
+						console.log('[Cleanup] 旧PIXI应用已销毁');
+					} catch (e) {
+						console.warn('[Cleanup] 销毁PIXI应用时出错:', e);
+					}
+				}
+			}, 100); // 延迟100ms确保新实例已经创建
+		};
+	}, [modelPath]);
 
-    model.on("hit", (hitAreas) => {
-        if (hitAreas.includes("Body")) {
-          model.motion("Tap");
-        }
-    
-        if (hitAreas.includes("Head")) {
-          model.expression();
-        }
-      });
+	const handlePlaySound = async ()=>{
+		if (!model) return;
+		const category_name = "Idle" // 模型动作名称
+		const animation_index = 0 // 该运动类别下的动画索引 [null => random]
+		const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
+		const audio_link = "/sounds/test.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
+		const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
+		const expression = 4; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
+		const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
 
-    // addHitAreaFrames(model);
-    // transforms
-    // model.x = 100;
-    // model.y = 100;
-    // model.rotation = Math.PI;
-    // model.skew.x = Math.PI;
-    // model.scale.set(2, 2);
-    // model.anchor.set(0.5, 0.5);
 
-    const category_name = "Idle" // 模型动作名称
-    const animation_index = 0 // 该运动类别下的动画索引 [null => random]
-    const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
-    const audio_link = "/sounds/aaa.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
-    const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
-    const expression = null; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
-    const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
+		// 眨眼，1秒后睁开
+		// setModelParam(model, 'ParamEyeLOpen', 0)
+		// setTimeout(() => {
+		//     setModelParam(model, 'ParamEyeLOpen', 1);
+		// }, 1000);
 
-    // model.speak(audio_link, {
-    //     volume: volume,
-    //     // @ts-ignore
-    //     expression: expression,
-    //     resetExpression: resetExpression,
-    //     crossOrigin: "anonymous"
-    // });
+		// 声音嘴型同步
+		model?.speak?.(audio_link, {
+			volume: volume,
+			expression: expression,
+			resetExpression: resetExpression,
+			crossOrigin: "anonymous"
+		});
 
-    return model
+		// let frameId;
+		// const startTime = Date.now();
+		// const animateBreathing = () => {
+		//     let elapsedTime = Date.now() - startTime;
+		//     elapsedTime = 5;
+		//     // 使用sin函数创建一个-0.5到0.5的平滑周期性数值
+		//     const breathValue = Math.sin(elapsedTime / 1000) * 0.5;
+
+		//     // 调用我们自制的便捷函数
+		//     setModelParam(model, 'ParamBodyAngleY', elapsedTime);
+
+		//     frameId = requestAnimationFrame(animateBreathing);
+		// };
+		// animateBreathing();
+
+	
+		// const paramId = 'ParamBodyAngleY';
+		// const impactValue = 50; // 使用一个远超常规的大数值
+		// console.log(`Testing ${paramId} with high impact value: ${impactValue}`);
+	
+		// // 1. 猛地向上倾斜
+		// setModelParam(model, paramId, impactValue);
+	
+		// // 2. 延迟后猛地向下倾斜
+		// setTimeout(() => {
+		//     setModelParam(model, paramId, -impactValue);
+		// }, 200);
+	
+		// // 3. 最后恢复
+		// setTimeout(() => {
+		//     setModelParam(model, paramId, 0);
+		// }, 400);
+
+
+		// const paramId = 'ParamBodyAngleX';
+		// const impactValue = 30;
+	
+		// console.log(`Testing ${paramId} for dramatic effect!`);
+	
+		// setModelParam(model, paramId, impactValue);
+		// setTimeout(() => setModelParam(model, paramId, -impactValue), 250);
+		// setTimeout(() => setModelParam(model, paramId, 0), 500);
+
+
+		// const paramId = 'ParamBodyAngleX';
+		// let impactValue = 0;
+	
+		// console.log(`Testing ${paramId} for dramatic effect!`);
+	
+		// // 动作调试
+		// while(impactValue < 100){
+		//     setModelParam(model, paramId, impactValue);
+		//     setModelParam(model, 'ParamBodyAngleY', impactValue);
+		//     impactValue += 0.05;
+		//     await new Promise(resolve => setTimeout(resolve, 1));
+		// }
+
+		// while(impactValue > 0){
+		//     setModelParam(model, paramId, impactValue);
+		//     setModelParam(model, 'ParamBodyAngleY', impactValue);
+		//     impactValue -= 0.05;
+		//     await new Promise(resolve => setTimeout(resolve, 1));
+		// }
+
+
+
+
+		// playJoyfulJump(model, 5000);
+		// playHandsOnChest(model, 5000);
+		playHairFlip(model, {
+			duration: 5000,
+		})
+
+		// model.motion('', 3, priority_number);
+		// model.motion('', animation_index, priority_number, {
+		//     sound: audio_link,
+		//     volume: volume,
+		//     expression: null,
+		//     resetExpression: resetExpression
+		// });
+		console.log(`play sound success`)
+	}
+
+	const handleRandomEmotion = async () => {
+		if (!model) return;
+		const intents = ['joyful','happy','cheer','angry','sad','shy','love','surprised','calm'];
+		const intent = intents[Math.floor(Math.random() * intents.length)];
+		const variability = Math.random() * 0.6 + 0.2; // 0.2~0.8
+		const energy = Math.random() * 0.7 + 0.3;      // 0.3~1.0
+		const tempo = Math.random() * 0.8 + 0.7;       // 0.7~1.5
+		const duration = null; // Math.floor(1200 + Math.random() * 1200); // 1200~2400ms
+		console.log('[Intent] 触发表情/动作:', intent, { variability, energy, tempo, duration });
+		await performIntent(model, modelPath, intent as any, { variability, energy, tempo, duration, speech: '/sounds/aaa.mp3' });
+	};
+
+	const handleResetFace = () => {
+		if (!model) return;
+		neutralizeFace(model, { aggressive: true });
+		console.log('[Control] 脸部已回正');
+	};
+
+	const toggleMouseFollow = () => {
+		setMouseFollowEnabled(!mouseFollowEnabled);
+		if (model) {
+			// 在模型上设置标志，让 isInteractionLocked 能读取
+			(model as unknown as Record<string, unknown>).__mouseFollowEnabled = !mouseFollowEnabled;
+			// lockInteraction(model, !mouseFollowEnabled);
+		}
+		console.log('[Control] 鼠标跟随:', !mouseFollowEnabled ? '开启' : '关闭');
+	};
+
+	const handleModelChange = (newModelPath: string) => {
+		setModelPath(newModelPath);
+		
+		// 更新URL参数
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			const modelName = newModelPath.split('/')[2]; // 从路径中提取模型名称
+			url.searchParams.set('model', modelName);
+			window.history.replaceState({}, '', url.toString());
+			console.log(`[URL] 已更新URL参数: model=${modelName}`);
+		}
+	};
+
+	return (
+		<div className='relative w-full h-[70vh]' ref={canvasContainerRef}>
+			<canvas ref={canvasRef} />
+			<div id="control"></div>
+			<div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+				{/* 模型选择器 */}
+				<select 
+					value={modelPath} 
+					onChange={(e) => handleModelChange(e.target.value)}
+					style={{ 
+						padding: '8px 12px', 
+						borderRadius: '4px', 
+						border: '1px solid #ccc',
+						backgroundColor: 'white',
+						fontSize: '14px'
+					}}
+				>
+					<option value="/models/VT_RetroGirl/RetroGirl.model3.json">VT_RetroGirl</option>
+					<option value="/models/or_01/ori_01.model3.json">or_01</option>
+					<option value="/models/haru/haru.model3.json">haru</option>
+					<option value="/models/Hiyori/Hiyori.model3.json">Hiyori</option>
+					<option value="/models/Mark/Mark.model3.json">Mark</option>
+					<option value="/models/Natori/Natori.model3.json">Natori</option>
+					<option value="/models/Rice/Rice.model3.json">Rice</option>
+					<option value="/models/Mao/Mao.model3.json">Mao</option>
+					<option value="/models/Wanko/Wanko.model3.json">Wanko</option>
+					<option value="/models/koharu/koharu.model3.json">koharu</option>
+					<option value="/models/haruto/haruto.model3.json">haruto</option>
+				</select>
+				
+				<button id="playSound" onClick={handlePlaySound}>Play Sound</button>
+				<button onClick={handleRandomEmotion}>Random Emotion</button>
+				<button onClick={handleResetFace}>Reset Face</button>
+				<button className='absolute right-0'
+					onClick={toggleMouseFollow}
+					style={{ 
+						backgroundColor: mouseFollowEnabled ? '#4CAF50' : '#f44336',
+						color: 'white',
+						border: 'none',
+						padding: '8px 16px',
+						borderRadius: '4px'
+					}}
+				>
+					{mouseFollowEnabled ? '✓ 跟随鼠标' : '✗ 停止跟随'}
+				</button>
+			</div>
+		</div>
+	)
+}
+
+
+const loadModel = async (modelPath: string, app: PIXI.Application, canvasDom: HTMLCanvasElement): Promise<Live2DModelLike | null> => {
+	console.log(`loadModel`, modelPath)
+	while(!window.Live2DCubismCore) {
+		await new Promise(resolve => setTimeout(resolve, 3000));
+	}
+	if(!window.Live2DCubismCore) return null;
+	// window.PIXI = PIXI;
+	const { Live2DModel } = await import('pixi-live2d-display-lipsyncpatch/cubism4');
+	const model = await Live2DModel.from(modelPath, {
+		ticker: PIXI.Ticker.shared,
+		// 关闭库默认的自动交互，改为我们自行控制（以便在动作期间暂停跟随鼠标）
+		autoInteract: false,
+	});
+	app.stage.addChild(model);
+	const typedModel = model as unknown as Live2DModelLike;
+	
+	// 自动计算合适的缩放系数，让模型适应画布
+	const modelWidth = model.internalModel.width;
+	const modelHeight = model.internalModel.height;
+	const canvasWidth = app.screen.width;
+	const canvasHeight = app.screen.height;
+	
+	// 计算缩放系数，让模型在画布中占据合适比例（比如画布高度的70%）
+	const targetHeight = canvasHeight * 1;
+	const targetWidth = canvasWidth * 0.7;
+	
+	const scaleX = targetWidth / modelWidth;
+	const scaleY = targetHeight / modelHeight;
+	const scale = Math.min(scaleX, scaleY); // 取较小的值，确保模型完全显示在画布内
+	
+	console.log(`[Model Load] 模型尺寸: ${modelWidth}x${modelHeight}, 画布尺寸: ${canvasWidth}x${canvasHeight}, 计算缩放: ${scale}`);
+	
+	model.scale.set(scale);
+	
+	// 将模型居中显示
+	model.x = canvasWidth / 2;
+	model.y = canvasHeight / 2;
+	
+	// 设置模型的锚点为中心点
+	model.anchor.set(0.5, 0.5);
+	
+	console.log(`[Model Load] 模型已居中，位置: (${model.x}, ${model.y}), 缩放: ${scale}`);
+	
+	// draggable(model);
+	addFrame(model);
+
+	// 手动跟随鼠标：仅在未执行意图时启用
+	const handleMouseMove = (event: MouseEvent) => {
+		if (isInteractionLocked(typedModel)) return;
+		const rect = canvasDom.getBoundingClientRect();
+		const x = event.clientX - rect.left;
+		const y = event.clientY - rect.top;
+		try { typedModel?.focus?.(x, y); } catch (_) {}
+	};
+	window.addEventListener('mousemove', handleMouseMove);
+
+	setModelParam(typedModel, 'ParamEyeLOpen', 0)
+
+	setTimeout(() => {
+		setModelParam(typedModel, 'ParamEyeLOpen', 1);
+	}, 1000);
+
+	typedModel.on?.("hit", (hitAreas: any) => {
+		if (hitAreas.includes("Body")) {
+		  typedModel.motion?.("Tap");
+		}
+	
+		if (hitAreas.includes("Head")) {
+		  typedModel.expression?.();
+		}
+	  });
+
+	// addHitAreaFrames(model);
+	// transforms
+	// model.x = 100;
+	// model.y = 100;
+	// model.rotation = Math.PI;
+	// model.skew.x = Math.PI;
+	// model.scale.set(2, 2);
+	// model.anchor.set(0.5, 0.5);
+
+	const category_name = "Idle" // 模型动作名称
+	const animation_index = 0 // 该运动类别下的动画索引 [null => random]
+	const priority_number = 3 // 优先级编号 如果你想保持当前动画继续或强制移动到新动画 可以调整此值 [0: 无优先级, 1: 空闲, 2: 普通, 3: 强制]
+	const audio_link = "/sounds/aaa.mp3" // 音频链接地址 [可选参数，可以为null或空] [相对或完整url路径] [mp3或wav文件]
+	const volume = 1; // 声音大小 [可选参数，可以为null或空][0.0-1.0]
+	const expression = null; // 模型表情 [可选参数，可以为null或空] [index | expression表情名称]
+	const resetExpression = true; // 是否在动画结束后将表情expression重置为默认值 [可选参数，可以为null或空] [true | false] [default: true]
+
+	// model.speak(audio_link, {
+	//     volume: volume,
+	//     // @ts-ignore
+	//     expression: expression,
+	//     resetExpression: resetExpression,
+	//     crossOrigin: "anonymous"
+	// });
+
+	return typedModel
 }
 
 const fetchModel = async (modelPath: string) => {
@@ -450,14 +478,14 @@ const fetchModel = async (modelPath: string) => {
 // }
   
   function addFrame(model: any) {
-    const foreground = PIXI.Sprite.from(PIXI.Texture.WHITE);
-    foreground.width = model.internalModel.width;
-    foreground.height = model.internalModel.height;
-    foreground.alpha = 0.1;
+	const foreground = PIXI.Sprite.from(PIXI.Texture.WHITE);
+	foreground.width = model.internalModel.width;
+	foreground.height = model.internalModel.height;
+	foreground.alpha = 0.1;
   
-    model.addChild(foreground);
+	model.addChild(foreground);
   
-    checkbox("Model Frames", (checked) => (foreground.visible = checked));
+	checkbox("Model Frames", (checked) => (foreground.visible = checked));
   }
   
 // function addHitAreaFrames(model: CUBISM4.Live2DModel) {
@@ -496,7 +524,7 @@ function checkbox(name: string, onChange: (checked: boolean) => void) {
  * @param {number} value - 要设置的值
  * @param {number} [weight=1] - 权重，可选
  */
-export function setModelParam(model: any, paramId: string, value: number, weight = 1) {
+export function setModelParam(model: Live2DModelLike, paramId: string, value: number, weight = 1) {
     if (model && model.internalModel && model.internalModel.coreModel) {
       model.internalModel.coreModel.setParameterValueById(paramId, value, weight);
     }
@@ -504,7 +532,7 @@ export function setModelParam(model: any, paramId: string, value: number, weight
 
   
   // 新增：获取模型参数值的便捷函数
-export function getModelParam(model: any, paramId: string) {
+export function getModelParam(model: Live2DModelLike, paramId: string) {
     if (model && model.internalModel && model.internalModel.coreModel) {
       return model.internalModel.coreModel.getParameterValueById(paramId);
     }
@@ -516,7 +544,7 @@ export function getModelParam(model: any, paramId: string) {
  * @param {Live2DModel} model - pixi-live2d-display 的模型实例
  * @param {number} [duration=1000] - 动画的总时长（毫秒）
  */
-export function playJoyfulJump(model: any, duration = 1000) {
+export function playJoyfulJump(model: Live2DModelLike, duration = 1000) {
     if (!model) return;
   
     // 动画中需要控制的核心参数ID
@@ -618,7 +646,7 @@ export function playJoyfulJump(model: any, duration = 1000) {
  * @param {Live2DModel} model - pixi-live2d-display 的模型实例
  * @param {number} [duration=800] - 动画时长（毫秒）
  */
-export function playHandsOnChest(model: any, duration = 800) {
+export function playHandsOnChest(model: Live2DModelLike, duration = 800) {
     if (!model) return;
   
     // === 在这里填入您在编辑器中找到的参数ID ===
@@ -688,7 +716,7 @@ export function playHandsOnChest(model: any, duration = 800) {
  * @param {'left' | 'right'} [options.direction='left'] - 甩头方向
  * @param {number} [options.impactValue=30] - 甩头的最大角度
  */
-export function playHairFlip(model: any, { duration = 800, direction = 'left', impactValue = 30 } = {}) {
+export function playHairFlip(model: Live2DModelLike, { duration = 800, direction = 'left', impactValue = 30 } = {}) {
     if (!model) return;
   
     // 核心控制参数
@@ -781,7 +809,7 @@ type PerformOptions = {
     useExpression?: boolean; // 是否使用模型自带的 expression（默认 false，便于可控复原）
 };
 
-async function fetchJson<T = any>(url: string): Promise<T | null> {
+async function fetchJson<T = unknown>(url: string): Promise<T | null> {
     try {
         const res = await fetch(url);
         if (!res.ok) return null;
@@ -840,7 +868,7 @@ async function discoverModelResources(modelPath: string): Promise<{ physicsInput
     return { physicsInputs, expressionNames };
 }
 
-export async function performIntent(model: any, modelPath: string, intent: IntentName, options: PerformOptions = {}) {
+export async function performIntent(model: Live2DModelLike, modelPath: string, intent: IntentName, options: PerformOptions = {}) {
     if (!model || !modelPath) return;
     lockInteraction(model, true);
     // 注意：回正在各意图内部以轻量方式进行，避免与动画写入产生冲突
@@ -950,7 +978,7 @@ export async function performIntent(model: any, modelPath: string, intent: Inten
 }
 
 async function performJoyful(
-    model: any,
+    model: Live2DModelLike,
     physicsInputs: Set<string>,
     expressionNames: string[],
     { duration = 1500, speech = null, variability = 0.4, energy = 0.6, tempo = 1.0, useExpression = false }: PerformOptions = {}
@@ -1125,7 +1153,7 @@ async function performJoyful(
     }
 }
 
-function safeSet(model: any, paramId: string, value: number) {
+function safeSet(model: Live2DModelLike, paramId: string, value: number) {
     try { 
         setModelParam(model, paramId, value);
     } catch (e) { 
@@ -1133,7 +1161,7 @@ function safeSet(model: any, paramId: string, value: number) {
     }
 }
 
-function neutralizeFace(model: any, opts?: { aggressive?: boolean; forIntent?: boolean }) {
+function neutralizeFace(model: Live2DModelLike, opts?: { aggressive?: boolean; forIntent?: boolean }) {
     const aggressive = Boolean(opts?.aggressive);
     const forIntent = Boolean(opts?.forIntent);
 
@@ -1203,7 +1231,7 @@ async function getAudioDurationMs(src: string): Promise<number> {
 
 // 基础表情/动作：以表情微调 + 轻微姿态 + 轻摆组合，通用且可复原
 async function performBasicEmotion(
-    model: any,
+    model: Live2DModelLike,
     expressionNames: string[],
     cfg: {
         duration: number;
@@ -1272,7 +1300,7 @@ async function performBasicEmotion(
 
     function anim() {
         const elapsed = Date.now() - start;
-        let p = Math.min(1, elapsed / cfg.duration);
+        const p = Math.min(1, elapsed / cfg.duration);
         const tSec = elapsed / 1000;
         
         // 使用情绪特定的动作曲线
@@ -1315,7 +1343,7 @@ async function performBasicEmotion(
     }
 }
 
-function smoothRestore(model: any, baselines: Map<string, number>, restoreMs: number) {
+function smoothRestore(model: Live2DModelLike, baselines: Map<string, number>, restoreMs: number) {
     const start = Date.now();
     const beginValues = new Map<string, number>();
     for (const [id] of baselines) {
@@ -1342,14 +1370,14 @@ function smoothRestore(model: any, baselines: Map<string, number>, restoreMs: nu
 
 // 简单的交互锁，阻止动作期间的鼠标跟随
 const INTERACTION_LOCK_KEY = '__intentLocked';
-function lockInteraction(model: any, locked: boolean) {
-    try { (model as any)[INTERACTION_LOCK_KEY] = locked; } catch (_) {}
+function lockInteraction(model: Live2DModelLike, locked: boolean) {
+    try { (model as unknown as Record<string, unknown>)[INTERACTION_LOCK_KEY] = locked; } catch (_) {}
 }
-function isInteractionLocked(model: any): boolean {
+function isInteractionLocked(model: Live2DModelLike): boolean {
     try { 
         // 检查是否被意图执行锁定，或者用户手动关闭了跟随
-        const intentLocked = Boolean((model as any)[INTERACTION_LOCK_KEY]);
-        const userDisabled = !(model as any).__mouseFollowEnabled;
+        const intentLocked = Boolean((model as unknown as Record<string, unknown>)[INTERACTION_LOCK_KEY]);
+        const userDisabled = !Boolean((model as unknown as Record<string, unknown>).__mouseFollowEnabled);
         return intentLocked || userDisabled;
     } catch (_) { 
         return false; 
